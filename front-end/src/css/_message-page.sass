@@ -1,0 +1,56 @@
+$bar-height: 65px
+
+.message-page
+	display: flex
+	flex-direction: column
+	min-height: 100vh
+
+	.main-content
+		display: flex
+		flex-grow: 2
+		justify-content: space-between
+		align-items: stretch
+
+		.column
+			border-top: 1px solid #E4E4E4
+			border-right: 1px solid #E4E4E4
+
+.search-div, .profile-div
+	height: $bar-height
+	display: flex
+	align-items: center
+
+.search-div
+	.input-text
+		height: 35px
+		flex-grow: 1
+
+		svg
+			flex-basis: 38px
+
+		input
+			height: 35px
+
+.profile-div
+	background-color: white
+	box-shadow: 0 15px 15px -15px rgba(0, 0, 0, 0.1)
+	z-index: 2
+	.icon
+		margin: 0 15px
+	.profile-info
+		font-size: 0.95rem
+		color: #1B1B1B
+
+		div
+			margin: 5px 2px
+		.name
+			font-weight: 600
+
+		.status
+			color: #A7A7A7
+
+.chat-div
+	border-top: 1px solid #E4E4E4
+
+
+

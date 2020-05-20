@@ -1,0 +1,57 @@
+.emoji-button
+	position: relative
+
+.emoji-panel
+	position: absolute
+	margin: 4px
+	background-color: #8E8E8E
+	bottom: 100%
+	left: 0
+	width: 300px
+	height: 200px
+	padding: 5px 10px 5px 5px
+	position: absolute
+	background-color: white
+	overflow: hidden
+	border-radius: 7px
+	box-shadow: 0 0 4px rgba(0,0,0, 0.2)	
+
+	&.closed
+		display: none
+
+	&.open, &.close-active
+		opacity: 0
+
+	&.open-active, &.close-active
+		transition: 0.2s opacity
+		transform-origin: 0% 100%
+
+	&.open-active
+		opacity: 1
+			
+
+	.list-emoji-panel
+		position: absolute
+
+.emoji-pattern-wrapper
+	padding: 5px 6px
+	display: inline-block
+
+	&:hover
+		background-color: #EDEDED
+		border-radius: 7px
+		cursor: pointer
+
+.emoji-pattern
+	background: url('./img/emoji.png')
+	width: 16px
+	height: 18px
+	display: inline-block
+	background-size: auto 126px 
+	padding-left: 2px
+	z-index: 5
+	border-radius: 5px
+
+.emoji
+	pointer-events: none
+	transform: translateY(3px)

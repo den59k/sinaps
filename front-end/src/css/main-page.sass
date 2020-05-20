@@ -1,0 +1,185 @@
+@import "nav-bar"
+@import "message-page"
+@import "conference-page"
+
+.home-page
+	background-image: url('./img/profile-background.svg')
+	background-size: 100%
+	background-position: left -40%
+	background-repeat: no-repeat
+	min-height: 100vh
+	overflow: hidden
+
+	@media (max-width: 1920px)
+		background-size: 1920px
+		background-position: left top
+
+	padding: 40px
+	padding-top: 60px
+	box-sizing: border-box 
+
+	.profile-header
+		display: flex
+		justify-content: space-between
+		color: #4C4C4C
+
+		.person-info
+			flex-grow: 2
+			margin-left: 50px
+			align-self: center
+
+			.person-name
+				margin-bottom: 50px
+				font-weight: 200
+				font-size: 2.2rem
+
+			.person-group
+				font-weight: normal
+				font-size: 1.4rem
+
+				b
+					color: #FF5C00
+
+		.expertition
+			font-size: 1.2rem
+			margin: 0
+
+		.full-profile-image
+			width: 210px
+			height: 210px
+			border-radius: 28px
+
+			&.null-image
+				border: 1px solid #D3D3D3
+				width: 208px
+				height: 208px
+				background: no-repeat url('./img/null-icon.svg') center
+				background-size: cover
+
+		.edit-image
+			position: relative
+			overflow: hidden
+			border-radius: 28px
+
+			&:hover
+				cursor: pointer
+
+		.popup
+			position: absolute
+			bottom: 0
+			text-align: center
+			width: 100%
+			height: 100%
+			opacity: 0
+			transition: opacity 0.3s
+			display: flex
+			flex-direction: column
+			align-items: center
+			justify-content: center
+			background-color: rgba(255, 255, 255, 0.8)
+
+			.popup-label
+				padding: 0 20px
+				margin-top: 10px
+				transform: translateY(50px)
+				transition: transform 0.3s 
+
+		.popup.active
+			opacity: 1
+
+			.popup-label
+				transform: translateY(0)
+
+
+
+.profile-section
+	h3
+		font-weight: 600
+		color: #353535
+		border-bottom: 2px solid #C2C2C2
+		line-height: 2.6rem
+		display: inline-block
+		margin-bottom: 10px
+
+.modal-window
+	.changePhoto
+		overflow: hidden
+		background-color: #FFFFFF
+		position: relative
+
+		&:hover
+			cursor: move
+
+		.loader-wrapper
+			color: white
+			display: flex
+			justify-content: center
+			align-items: center
+			position: absolute
+			width: 100%
+			height: 100%
+			top: 0
+			left: 0
+
+		.black
+			position: absolute
+			width: 100%
+			height: 100%
+			top: 0
+			left: 0
+			background-color: rgba(0, 0, 0, 0.8)
+
+		.changePhoto-photo
+			position: absolute
+			top: 0
+			left: 0
+			overflow: hidden
+			border-radius: 50%
+
+	.slider-wrapper
+		text-align: center
+
+		.zoom-icon
+			vertical-align: middle
+			display: inline-block
+			margin: 0 12px
+			color: #828282
+
+			&:hover
+				color: #3F3F3F
+				cursor: pointer
+		.slider
+			display: inline-block
+
+.main-header
+	display: flex
+	align-items: center
+	height: 60px
+
+	h1
+		font-weight: 200
+		font-size: 1.7rem
+
+		margin-left: 25px
+		color: #3D3D3D
+		margin-left: 30px
+
+	.header-back-link
+		min-width: 70px
+		font-weight: 600
+		font-size: 0.9rem
+		line-height: 1.5em
+		margin: 0 10px
+		padding: 10px
+		&:hover
+			svg
+				transform: translateX(-6px)
+
+		svg
+			vertical-align: middle
+			margin-right: 3px
+			transition: transform 0.2s
+
+
+
+

@@ -1,0 +1,117 @@
+$main-color: #FF5C00
+
+.login-column
+	text-align: center
+	p, span
+		color: #838383
+	p, a
+		font-size: 0.9rem
+
+	hr
+		border: none
+		border-top: 1px solid #DFDFDF
+		
+
+	.center-button
+		display: inline-block
+
+.login-page
+	display: flex
+	justify-content: space-between
+	align-items: center
+	min-height: 100vh
+	max-width: 750px
+	margin: 0 auto
+	@media (max-width:930px)
+		justify-content: center
+
+.login-label
+	font-weight: 200
+	font-size: 1.5rem
+	margin: 60px
+	text-align: center
+	color: #5F5F5F
+	line-height: 43px
+
+	@media (max-width:930px)
+		display: none
+
+.login-form
+	width: 320px
+	h1
+		font-size: 2.1rem
+		color: $main-color
+		text-align: left
+
+	.input-text
+		margin: 20px 0
+
+.login-form.register-form
+	width: 530px
+
+.register-form 
+	.input-text
+		margin: 25px 0
+	h1
+		margin-bottom: 40px
+		margin-top: 10px
+
+.form-flex
+	display: flex
+	justify-content: space-between
+	align-items: center
+
+	.input-text
+		margin: 0
+		flex-grow: 1
+
+.podpis
+	background-color: white
+	padding: 0 5px
+
+.social-media-button
+	display: block
+	width: 100%
+	padding: 0
+	text-align: left
+	line-height: 47px
+	height: 47px
+
+	svg
+		float: left
+		width: 49px
+		height: 21px
+		padding: 12px 0
+		background-color: rgba(0, 0, 0, 0.2)
+		margin-right: 15px
+
+
+.login-bkg
+	position: absolute
+	bottom: 0%
+	left: 0%
+	right: 0%
+	top: 0%
+	background: url('./img/login-background.svg')
+	background-position: bottom right
+	background-repeat: no-repeat
+	pointer-events: none
+	background-size: 120%
+
+.toBack
+	display: block
+	text-align: left
+	width: 100%
+	font-size: 0.9rem
+	font-weight: 600
+	color: $main-color
+	margin-bottom: 50px
+
+	svg
+		vertical-align: middle
+		margin-right: 6px
+
+.login-main-page
+	background-image: url('./img/sinaps-logo.svg')
+	background-repeat: no-repeat
+	background-position: 95% 95%

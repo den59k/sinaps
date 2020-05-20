@@ -1,0 +1,34 @@
+
+
+.changes-enter, .changes-exit 
+	position: absolute
+	width: 100%
+	top: 0
+	pointer-events: none
+	overflow: hidden
+
+.changes-enter>.anim
+	opacity: 0
+
+.changes-enter>.left, .changes-exit-active>.left
+	transform: translateX(-250px)
+
+.changes-enter>.right, .changes-exit-active>.right
+	transform: translateX(250px)
+
+.changes-enter>.up, .changes-exit-active>.up
+	transform: translateY(-250px)
+
+.changes-enter>.down, .changes-exit-active>.down
+	transform: translateY(250px)
+
+.changes-enter-active>.anim
+	transition: opacity 0.2s ease-out 0.2s, transform 0.4s
+	transform: translate(0, 0)
+	opacity: 1
+
+
+.changes-exit-active>.anim 
+	transition: opacity 0.2s ease-in, transform 0.4s
+	opacity: 0
+

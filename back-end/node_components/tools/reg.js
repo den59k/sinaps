@@ -1,0 +1,1 @@
+module.exports.name = /^[а-яА-ЯёЁa-zA-Z0-9 ]+$/

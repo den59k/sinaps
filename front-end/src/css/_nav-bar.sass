@@ -1,0 +1,77 @@
+$size: 60px
+
+.nav-bar
+	position: fixed
+	width: $size
+	height: 100%
+	background-color: #F4F4F4
+	@media(min-height: 460px)
+		background-image: url('./img/s-logo.svg')
+		background-repeat: no-repeat
+		background-position: 50% 18px
+		background-size: 22px
+	top: 0
+	display: flex
+	align-items: center
+	z-index: 10
+
+	.nav-tools
+		display: flex
+		flex-direction: column
+		max-height: 350px 
+		height: 100%
+		justify-content: space-between
+
+	.nav-link
+		width: $size
+		flex-basis: $size - 10px
+		flex-shrink: 0
+		color: #6D6D6D
+		display: flex
+		justify-content: center
+		align-items: center
+		font-size: 1.5rem
+		transition: color 0.4s
+		position: relative
+		&:hover
+			background-color: rgba(0, 0, 0, 0.03)
+			.hover-opacity
+				opacity: 0.7
+
+		&.active
+			color: #FF5C00
+
+
+		.spline
+			position: absolute
+			width: 4px
+			height: 0
+			left: 0
+			background-color: #FF5C00
+			transition: 0.25s height
+
+		&.active .spline
+			height: 100%
+
+.nav-bar.enter
+	transform: translateX(-$size)
+	transition: 0.2s transform ease-out
+
+.nav-bar.enter.enter-active
+	transform: translateX(0)
+
+.nav-bar+*
+	margin-left: $size
+
+.title
+	position: absolute
+	height: 20px
+	background-color: #343434
+	color: white
+	margin-top: -20px
+	line-height: 20px
+	padding: 10px
+	border-radius: 8px
+	opacity: 0.95
+	font-size: 0.9rem
+	z-index: 10
