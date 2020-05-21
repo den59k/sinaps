@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { RippleButton } from './LoginInputs.jsx'
-import { AiOutlinePaperClip } from 'react-icons/ai'
 import { MdSentimentSatisfied, MdSend } from 'react-icons/md'
 import { CssEmoji, ImgEmoji, findEmoji } from './emoji.jsx'
 
@@ -13,23 +12,44 @@ export default function Chat(props){
 	const [placeholder, setPlaceholder] = useState(true);
 	const [emojiPanel, showEmojiPanel] = useState(false);
 
-	const onSelect = (e) => {
-	
+	const send = () => {
+		let p = textInput.current;
+		let str = "";
+		let ch;
+		while ((ch = p.firstChild) !== null) {
+			if(ch.nodeType === Node.TEXT_NODE)
+				str += ch.data;
+			else{ 
+				if(ch.tagName === 'IMG')
+					str += ch.getAttribute('alt');
+				if(ch.tagName === 'BR' && ch !== p.lastChild)
+					str += "\n";
+			}
+			ch.remove();
+		}
+
+		props.send(str);
+
+		checkPlaceholder();
 	}
 
 	const keyDown = e => {
-
+		if(e.keyCode === 13 && !e.shiftKey){
+			send();
+			e.preventDefault();
+		}
 	}
 
-	const onChange = e => {
-		while(e.target.firstChild !== null && 
-			(e.target.firstChild.tagName === 'BR' || e.target.firstChild.nodeValue === ' '))
-			e.target.firstChild.remove();
+	const checkPlaceholder = () => {
+		const text = textInput.current;
+		while(text.firstChild !== null && 
+			(text.firstChild.tagName === 'BR' || text.firstChild.nodeValue === ' '))
+			text.firstChild.remove();
 	
-		if(e.target.childNodes.length > 0 && placeholder)
+		if(text.childNodes.length > 0 && placeholder)
 			setPlaceholder(false);
 
-		if(e.target.childNodes.length === 0 && !placeholder)
+		if(text.childNodes.length === 0 && !placeholder)
 			setPlaceholder(true);
 	}
 
@@ -92,7 +112,7 @@ export default function Chat(props){
 			}, 200);
 	}
 
-	const style = {lineHeight: lineHeight+'px', padding: ((height-lineHeight)/2)+'px 4px'};
+	const style = {lineHeight: lineHeight+'px', padding: ((height-lineHeight)/2)+'px 4px', outline: 'none'};
 
 	return (
 		<div className={"chat " + props.className}>
@@ -110,13 +130,13 @@ export default function Chat(props){
 				<div 	ref={textInput} 
 							contentEditable={true} 
 							style={style} 
-							onInput={onChange} 
+							onInput={checkPlaceholder} 
 							onPaste={paste}
 							spellCheck={false}
 							onKeyDown={keyDown}></div>
 			</div>
 
-			<RippleButton className={'transparent chat-button send'+(placeholder?' closed': '')}>
+			<RippleButton className={'transparent chat-button send'+(placeholder?' closed': '')} onClick={send}>
 				<MdSend size="1.9em" style={{transform: 'translateX(2px)'}}/>
 			</RippleButton>
 

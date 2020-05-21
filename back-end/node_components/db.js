@@ -22,16 +22,20 @@ module.exports = async (urlConnect, dbName) => {
 		console.log(`Collection ${chalk.cyan('users')} created`);
 	}
 
+	//bindings - связи между юзерами
 	if(!dbNames.includes('bindings')){
 		const bindings = await db.createCollection('bindings');
 		bindings.createIndex({timestamp: -1});
+		bindings.createIndex('users');
+		bindings.createIndex('isGroup');
 		console.log(`Collection ${chalk.cyan('bindings')} created`);
 	}
 
 	if(!dbNames.includes('groups')){
 		const groups = await db.createCollection('groups');
-		groups.createIndex({timestamp: -1});
 		groups.createIndex('link', {unique: true});
+		groups.createIndex('binding', {unique: true});
+		
 		console.log(`Collection ${chalk.cyan('groups')} created`);
 	}
 

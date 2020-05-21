@@ -3,13 +3,14 @@ $bar-height: 65px
 .message-page
 	display: flex
 	flex-direction: column
-	min-height: 100vh
+	height: 100vh
 
 	.main-content
 		display: flex
 		flex-grow: 2
 		justify-content: space-between
 		align-items: stretch
+		overflow: hidden
 
 		.column
 			border-top: 1px solid #E4E4E4
@@ -17,12 +18,17 @@ $bar-height: 65px
 
 .search-div, .profile-div
 	height: $bar-height
-	display: flex
-	align-items: center
+	flex-shrink: 0
 
 .search-div
+	display : block
+	overflow: hidden
+	position: relative
+	padding: 0 10px
 	.input-text
-		height: 35px
+		top: 50%
+		margin-top: -17px
+		height: 34px
 		flex-grow: 1
 
 		svg
@@ -32,6 +38,8 @@ $bar-height: 65px
 			height: 35px
 
 .profile-div
+	display: flex
+	align-items: center
 	background-color: white
 	box-shadow: 0 15px 15px -15px rgba(0, 0, 0, 0.1)
 	z-index: 2
@@ -51,6 +59,85 @@ $bar-height: 65px
 
 .chat-div
 	border-top: 1px solid #E4E4E4
+
+.messages
+	display: flex
+	flex-direction: column
+	align-items: flex-start
+	overflow: auto
+
+.next .message
+		margin-left: 63px
+		border-radius: 0 8px 8px 8px
+
+.new .message
+		border-radius: 8px
+
+.new:has(+ div) .message
+	border-radius: 8px 8px 8px 0
+
+.message-wrapper
+	margin: 1px
+	&:last-child
+		.message
+			margin-bottom: 6px
+	.icon
+		display: inline-block
+		vertical-align: top
+		margin-right: 10px
+		margin-left: 8px
+
+.new
+	margin-top: 7px
+
+.message
+	font-size: 0.9rem
+	line-height: 1.2rem
+	background-color: white
+	display: inline-block
+	padding: 6px 10px
+
+.message-text
+	color: #4F4F4F
+
+.message-header
+	display: flex
+	justify-content: space-between
+	margin-bottom: 6px
+
+	.time
+		color: #A4A4A4
+		margin-left: 20px
+
+	.profile-name
+		font-weight: 600
+		color: #FF5C00
+
+.binds
+	 list-style-type: none
+	 margin: 0
+	 padding: 0
+
+.bind
+	padding: 10px
+	display: flex
+	align-items: center
+	font-size: 0.9rem
+	border-bottom: 1px solid #F2F2F2
+
+	&:hover
+		background-color: #F2F2F2
+		cursor: pointer
+
+	.author
+		font-weight: 600
+		color: #FF5C00
+
+	.icon
+		margin-right: 10px
+
+
+
 
 
 

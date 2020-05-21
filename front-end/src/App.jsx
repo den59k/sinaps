@@ -22,9 +22,11 @@ class App extends React.Component {
       }
     }
 
-    if(sessionStorage.getItem('token')){
-      this.state.loading = true;
-    }
+   if(sessionStorage.getItem('token'))
+      this.state.token = sessionStorage.getItem('token');
+    
+    if(localStorage.getItem('auth'))
+      this.state.auth = JSON.parse(localStorage.getItem('auth'));
   }
 
   update = (u) => {
@@ -38,24 +40,47 @@ class App extends React.Component {
     this.setState({net});
   }
 
+  login = auth => {
+    fetch(this.state.net.url+'/authorization', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json;charset=utf-8'
+      },
+      body: JSON.stringify(auth) })
+    .then(response => response.json())
+    .then(res => {
+      if(res.success)
+        this.onLogin(res.success);
+      else
+        this.setState({auth: null});
+    });
+  }
+
   componentDidMount(){
-    if(this.state.loading){
+
+    if(this.state.token){
+      console.log(this.state.token);
       fetch(this.state.net.url+'/i-have-token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json;charset=utf-8'
         },
-        body: JSON.stringify({token: sessionStorage.getItem('token')}) })
+        body: JSON.stringify({token: this.state.token}) })
       .then(response => response.json())
       .then(res => {
+        this.setState({token: null});
+
         if(res.error){
           sessionStorage.removeItem('token');
-          this.setState({loading: false});
+          if(this.state.auth)
+            this.login(this.state.auth);
           return;
         }
+
         this.onLogin(res);
       });
-    }
+    }else if(this.state.auth)
+      this.login(this.state.auth);
   }
 
   onLogin = u => {
@@ -70,15 +95,14 @@ class App extends React.Component {
     socket.onclose = (e) =>{
       console.log('Веб-сокет закрыт. Причина:', e.reason);
     }
-    console.log(net);
 
     sessionStorage.setItem('token', u.token);
 
-    this.setState({net, loading: false});
+    this.setState({net, token: null, auth: null});
   }
 
   render() { 
-    if(this.state.loading) return  <div></div>
+    if(this.state.token || this.state.auth) return  <div></div>
     return (
       <BrowserRouter>
         <Switch>

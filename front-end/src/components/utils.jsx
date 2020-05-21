@@ -9,7 +9,7 @@ function Icon(props) {
 		const text = props.profile.name[0];
 		return <div {...props} style={{backgroundColor: '#4F0087', width: size+'px', height: size+'px',
 							lineHeight: (size-4)+'px', fontSize: (size/2)+'px'}} 
-								className={"icon-empty "+props.className}>{text}</div>
+								className={"icon-empty icon "+props.className}>{text}</div>
 	}
 }
 

@@ -9,6 +9,7 @@ class LoginPage extends React.Component {
 	constructor(props){
 		super(props);
 		this.loadingFlag = false;
+		this.remember = true;
 		this.url = props.net.url;
 
 		this.auth = {login: '', password: ''};
@@ -56,6 +57,10 @@ class LoginPage extends React.Component {
 
 			if(res.success){
 				this.props.onLogin(res.success);
+
+				if(this.remember){
+					localStorage.setItem('auth', JSON.stringify(this.auth));
+				}
 			}
 		})
 		.catch(e => { this.loadingFlag = false });

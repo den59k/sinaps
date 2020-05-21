@@ -33,6 +33,8 @@ console.log(a);
 const b = new ObjectID(id2);
 console.log(b);
 
+console.log(a < b);
+
 console.log(xor(Buffer.from(a.toHexString(), 'hex'), Buffer.from(b.toHexString(), 'hex')));
 console.log(xor(Buffer.from(b.toHexString(), 'hex'), Buffer.from(a.toHexString(), 'hex')));
 

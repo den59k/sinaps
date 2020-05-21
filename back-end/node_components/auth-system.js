@@ -61,7 +61,7 @@ function createAuthSystem(session){
 
 		console.log(req.body);
 
-		const exist = await usersDB.findOne({email: req.body.mail}, {projection: {bindings: 0}});
+		const exist = await usersDB.findOne({email: req.body.mail});
 		
 		if(exist !== null){
 			res.send({errors: {mail: 'Данный адрес уже занят'}});
@@ -85,8 +85,7 @@ function createAuthSystem(session){
 			login,
 			password: passHash,
 			name: req.body.name,
-			surname: req.body.surname,
-			bindings: []
+			surname: req.body.surname
 		}
 
 		const success = await usersDB.insertOne(user);
