@@ -6,6 +6,7 @@ function createAuthSystem(session){
 	const app = session.app;
 	const usersDB = session.usersDB;
 	const groupsDB = session.groupsDB;
+	const bindsDB = session.bindsDB;
 
 	async function getLogin(name, surname){
 
@@ -28,11 +29,12 @@ function createAuthSystem(session){
 		return null;
 	}
 
-	app.post('/authorization', (req, res) => {
+	app.post('/authorization', async (req, res) => {
 
 		const {login, password} = req.body;
 		if(!login || !password || login.length < 3 || password.length < 3 
-			|| login.length > 30 || password.length > 50) res.send({errors: {login: "Ошибка", password: "Ошибка"}});
+			|| login.length > 30 || password.length > 50) 
+			res.send({errors: {login: "Ошибка", password: "Ошибка"}});
 
 		const hash = crypto.createHash('sha1');
 		hash.update(password + ' salting salt');
@@ -40,21 +42,44 @@ function createAuthSystem(session){
 
 		//Дальше вот прям здесь идет проверка
 
-		usersDB.findOne({email: req.body.login}).then(c => {
-			if(c === null){
-				res.send({errors: {login: "Нет такого пользователя"}});
-				return;
+		const suser = await usersDB.findOne({email: req.body.login}, {projection: {bindings: 0}});
+		if(suser === null){
+			res.send({errors: {login: "Нет такого пользователя"}});
+			return;
+		}
+
+		if(suser.password !== passHash){
+			res.send({errors: {password: "Неверный пароль"}});
+			return;
+		}
+
+		//Здесь мы еще хотим найти непрочитанные сообщения
+		const binds = await bindsDB.find({users: suser._id}, {
+			projection: { messageCount: 1 },
+			sort: {timestamp: -1},
+			limit: 50
+		}).toArray();
+
+		for(let bind of binds){
+
+			const mes = await usersDB.findOne(
+				{_id: suser._id, "bindings._id": bind._id}, 
+				{
+					projection: {"bindings.$": 1 }
+				}
+			);
+
+			if(mes === null){
+				
+			}else{
+				
 			}
+		}
 
-			if(c.password !== passHash){
-				res.send({errors: {password: "Неверный пароль"}});
-				return;
-			}
+		let success = session.loginUser(suser);
 
-			let success = session.loginUser(c);
+		res.send({success});
 
-			res.send({success});
-		});
 	});
 
 	app.post('/registration', async (req, res) => {
@@ -85,7 +110,9 @@ function createAuthSystem(session){
 			login,
 			password: passHash,
 			name: req.body.name,
-			surname: req.body.surname
+			surname: req.body.surname,
+			bindings: [],
+			unread: 0
 		}
 
 		const success = await usersDB.insertOne(user);
@@ -97,8 +124,11 @@ function createAuthSystem(session){
 	});
 
 	app.post('/i-have-token', (req, res) => {
-		if(req.body.token && session.users.has(req.body.token))
-			res.send(session.users.get(req.body.token));
+
+		if(req.body.token && session.tokens.has(req.body.token)){
+			const user = session.loginUser(session.tokens.get(req.body.token));
+			res.send(user);
+		}
 		else
 			res.send({error: 'no'});
 	});

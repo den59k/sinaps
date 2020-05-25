@@ -6,6 +6,7 @@ import "./../css/main-page.sass"
 import HomePage from './main/HomePage.jsx'
 import MessagesPage from './main/MessagesPage.jsx'
 import ConferencesPage from './main/ConferencesPage.jsx'
+import SettingsPage from './main/SettingsPage.jsx'
 
 class MainPage extends React.Component {
 
@@ -15,16 +16,28 @@ class MainPage extends React.Component {
 		this.state = {animActive: false}
 	}
 
-	componentDidMount(){
+	onMessage = (e) => {
+		const obj = JSON.parse(e.data);
+		this.props.net.emitter.emit(obj.type, obj.data);
+	}
 
+	componentDidMount(){
+		if(this.props.net.socket)
+			this.props.net.socket.addEventListener('message', this.onMessage);
+	}
+
+	componentWillUnmount(){
+		if(this.props.net.socket)
+			this.props.net.socket.removeEventListener('message', this.onMessage);
 	}
 
 	render() {
-		if(this.props.net.token === null) return (<Redirect to='/auth'/>);
-
+		if(!this.props.net.socket)
+			return <Redirect to="/auth"/>
 		const routes = [
 			{ path: '/c', Component: ConferencesPage},
 			{ path: '/'+this.props.net.profile.login, Component: HomePage},
+			{ path: '/settings', Component: SettingsPage },
 			{ path: ['/:bind', '/'], Component: MessagesPage},
 		]
 

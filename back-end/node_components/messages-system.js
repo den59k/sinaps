@@ -1,4 +1,5 @@
 const url = require('url');
+const qs = require('querystringify');
 const {ObjectID} = require("mongodb");
 
 function xor (a, b) {
@@ -15,16 +16,18 @@ function xor (a, b) {
 function createMessageSystem(session){
 
 	const app = session.app;
-	const users = session.users;
+	const tokens = session.tokens;
 	const usersDB = session.usersDB;
 	const bindsDB = session.bindsDB;
 	const groupsDB = session.groupsDB;
+	const emitter = session.emitter;
 
 	app.post('/write-message', async(req, res) => {
 		try{
 			if(!req.headers.token || !session.hasUser(req.headers.token))
 				throw 'Ошибка авторизации';
-			const suser = users.get(req.headers.token);
+			const stoken = req.headers.token;
+			const suser = tokens.get(stoken);
 
 			if(!req.body.bind || !req.body.text)
 				throw 'Ошибка запроса';
@@ -33,42 +36,92 @@ function createMessageSystem(session){
 			if(link === suser.profile.login)
 				throw 'self';
 
-			const message = { text: req.body.text, timestamp: Date.now(), user: suser._id }
+			const message = { text: req.body.text, timestamp: Date.now(), user: suser._id, index: 0 }
 
-			const group = await groupsDB.findOne({link});
+			const _message = { text: message.text, bind: link, timestamp: message.timestamp, user: suser.profile };
 
-			if(group !== null){
+			const bindQuery = await createBindQuery(suser, link);
 
+			if(bindQuery === null)
+				throw 'not exist';
 
-				res.send({kek: 'group'});
-			}else{
-				const user = await usersDB.findOne({login: link}, {projection: {_id: 1}});
+			let bind = await bindsDB.findOne(bindQuery, {
+				projection: {_id: 1, users: 1, messageCount: 1}
+			});
 
-				if(user === null)
-					throw 'not exist';
-
-				const ids = (suser._id < user._id) ? [suser._id, user._id] : [user._id, suser._id];
-
-				const bind = await bindsDB.findOne({ users: ids, isGroup: false}, {projection: {_id: 1}});
-
-				if(bind === null){
-					await bindsDB.insertOne({ users: ids, isGroup: false, timestamp: message.timestamp, messages: [message] })
-				}else{
-					await bindsDB.updateOne(
-						{_id: bind._id}, 
-						{ 
-							$set: { timestamp: message.timestamp },
-							$push: { messages: message }
-					 	})
+			if(bind === null){
+				bind = { 
+					users: bindQuery.users, 
+					isGroup: false, 
+					timestamp: message.timestamp, 
+					messages: [message],
+					messageCount: 1
 				}
+				await bindsDB.insertOne(bind);
+			}else{
 
+				message.index = bind.messageCount;
 
-				res.send({message});
+				await bindsDB.updateOne(
+					{_id: bind._id}, 
+					{ 
+						$set: { timestamp: message.timestamp },
+						$push: { messages: message },
+						$inc: { messageCount: 1 }
+				 	})
+
+				bind.messageCount++;
 			}
+
+			_message.index = message.index;
+
+			//Здесь мы отправляем сообщения всем юзерам в сети
+			for(let id of bind.users){
+				const idstr = id.toHexString();
+				if(id.equals(suser._id))
+					_message.bind = link;
+				else
+					_message.bind = suser.profile.login;
+				if(session.users.has(idstr)){
+					session.users.get(idstr).sockets.forEach((socket, token) => {
+						if(token !== stoken)
+							socket.send(JSON.stringify({type: 'message', data: _message}));
+						
+					});
+				}
+			}
+
+			await readMessages(suser, bind);
+
+			res.send({message});
+
 		}catch(e){
+			console.log(e);
 			res.send({error: e}, 500);
 		}
 	});
+
+	const createBindQuery = async (suser, link) => {
+		const group = await groupsDB.findOne({link});
+
+		if(group !== null){
+			return { link, isGroup: true};
+
+		}else{
+
+			const user = await usersDB.findOne(
+				{ login: link }, 
+				{ projection: { _id: 1 } }
+			);
+
+			if(user === null)
+					return null;
+
+			const ids = (suser._id < user._id) ? [suser._id, user._id] : [user._id, suser._id];
+
+			return {users: ids, isGroup: false};
+		}
+	}
 
 	app.get('/get-bind/:bind', async (req, res) => {
 		try{
@@ -77,7 +130,15 @@ function createMessageSystem(session){
 
 			if(!req.headers.token || !session.hasUser(req.headers.token))
 				throw 'Ошибка авторизации';
-			const suser = users.get(req.headers.token);
+
+			const query = qs.parse(req._parsedUrl.query);
+			let limit = query.limit?parseInt(query.limit):0;
+			limit = Math.max(Math.min(limit, 100), 0);
+
+			let last = query.last?parseInt(query.last):0;
+			last = Math.max(last, 0);
+
+			const suser = tokens.get(req.headers.token);
 
 			const bind = req.params.bind;
 
@@ -92,18 +153,41 @@ function createMessageSystem(session){
 				res.send({kek: 'group'});
 			}else{
 
-				const user = await usersDB.findOne({login: bind}, {projection: {name: 1, surname: 1, icon: 1}});
+				const user = await usersDB.findOne({login: bind}, {projection: {login: 1, name: 1, surname: 1, icon: 1}});
 
 				if(user === null)
 					throw 'not exist';
 
 				const ids = (suser._id < user._id) ? [suser._id, user._id] : [user._id, suser._id];
 
+				let skip = 0;
+				if(last === 0)
+					skip = -limit
+				else{
+					skip = last-limit;
+					if(skip < 0){
+						limit += skip;
+						skip = 0;
+					}
+				}
+
 				const binding = await bindsDB.findOne({users: ids, isGroup: false}, {
-					projection: {_id: 0, isGroup: 0, timestamp: 0, users: 0, messages: { $slice: -20 }}
+					projection: {
+						isGroup: 0, 
+						timestamp: 0, 
+						users: 0, 
+						messages: limit > 0?({ $slice: [skip, limit] }):0
+					}
 				});
 
-				let messages = (binding === null)? [] : binding.messages;
+				let messages = [];
+				let messageCount = 0;
+
+				if(binding && binding.messages){
+					await readMessages(suser, binding);
+					messages = binding.messages;
+					messageCount = binding.messageCount;
+				}
 
 				for(let el of messages){
 					const u = await usersDB.findOne({_id: el.user}, 
@@ -112,44 +196,94 @@ function createMessageSystem(session){
 				}
 				
 				delete user._id;
-				res.send({user, messages});
+				res.send({
+					link: user.login, 
+					name: user.name+" "+user.surname, 
+					icon: user.icon, 
+					messages, 
+					messageCount,
+					readed: limit>1?messageCount:messageCount-1
+				});
 
 			}
 		}catch(e){
+			console.log(e);
 			res.send({error: e}, 500);
 		}
 	});
+
+	emitter.on('readed', async (message, user) => {
+		if(!message.bind || !message.readed)
+			return;
+		const bindQuery = await createBindQuery(user, message.bind);
+		if(bindQuery === null) return;
+		const bind = await bindsDB.findOne(bindQuery, {
+			projection: {_id: 1, messageCount: 1}
+		}); 
+		if(bind === null) return;
+		readMessages(user, bind);
+	});
+
+	const readMessages = async (suser, bind) => {
+		const t = await usersDB.updateOne(
+			{_id: suser._id, "bindings._id": bind._id}, 
+			{ $set: {"bindings.$.readed": bind.messageCount } }
+		);
+		if(t.matchedCount === 0)
+			await usersDB.updateOne(
+				{_id: suser._id}, 
+				{ $push: { bindings: { _id: bind._id, readed: bind.messageCount }} });
+	}
 
 	app.get('/get-binds', async(req, res) => {
 		try{
 			if(!req.headers.token || !session.hasUser(req.headers.token))
 				throw 'Ошибка авторизации';
 
-			const suser = users.get(req.headers.token);
+			const suser = tokens.get(req.headers.token);
 
 			const binds = await bindsDB.find({users: suser._id}, {
 				projection: {messages: { $slice: -1 }, timestamp: 0, users: 0},
 				sort: {timestamp: -1},
 				limit: 20
 			}).toArray();
+
 			for(let bind of binds){
+
+				const mes = await usersDB.findOne(
+					{_id: suser._id, "bindings._id": bind._id}, 
+					{ projection: {"bindings.$": 1 } }
+				);
+				if(mes === null)
+					bind.readed = 0;
+				else
+					bind.readed = mes.bindings[0].readed;
+
+
 				if(bind.isGroup){
 					const group = await groupsDB.findOne({binding: bind._id}, {projection: {_id: 0}});
 
 					bind.group = group;
+					bind.link = group.link;
 				}else{
 					const b = await bindsDB.findOne({_id: bind._id}, {projection: {_id: 0, users: 1}});
 
 					for(let i = 0; i < b.users.length; i++)
-						if(!b.users[i].equals(suser._id))
-							bind.user = await usersDB.findOne({_id: b.users[i]}, 
+						if(!b.users[i].equals(suser._id)){
+
+							const user = await usersDB.findOne({_id: b.users[i]}, 
 							{	projection: {_id: 0, name: 1, surname: 1, login: 1, icon: 1} });
+
+							bind.link = user.login;
+							bind.name = user.name+" "+user.surname;
+							bind.icon = user.icon;
+						}
 
 				}
 
 				if(bind.messages.length > 0)
 					bind.messages[0].user = await usersDB.findOne({_id: bind.messages[0].user}, 
-						{ projection: {_id: 0, name: 1, login: 1} });
+						{ projection: {_id: 0, name: 1, surname: 1, login: 1, icon: 1} });
 
 				delete bind._id;
 			}

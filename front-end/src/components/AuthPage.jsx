@@ -47,6 +47,8 @@ class AuthPage extends React.Component {
 						))}
 
 	      </BrowserRouter>
+	      <div className="fixed-logo">
+	      </div>
 			</div>
 		);
 	}

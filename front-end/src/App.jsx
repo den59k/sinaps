@@ -3,6 +3,8 @@ import 'normalize.css'
 import "./css/index.sass"
 import AuthPage from './components/AuthPage.jsx'
 import MainPage from './components/MainPage.jsx'
+import EventEmitter from 'events'
+import { url, wsUrl } from './constants'
 
 import { BrowserRouter, Route, Switch } from 'react-router-dom';
 
@@ -12,8 +14,6 @@ class App extends React.Component {
     super(props);
     this.state = {
       net: {
-        url: 'http://localhost',
-        dbUrl: 'http://localhost',
         socket: null,
         token: null,
         profile: null,
@@ -30,8 +30,6 @@ class App extends React.Component {
   }
 
   update = (u) => {
-    if(u.fullIcon) u.fullIcon = this.state.net.dbUrl+u.fullIcon;
-    if(u.icon) u.icon = this.state.net.dbUrl+u.icon;
 
     const profile = Object.assign({}, this.state.net.profile, u);
 
@@ -41,7 +39,7 @@ class App extends React.Component {
   }
 
   login = auth => {
-    fetch(this.state.net.url+'/authorization', {
+    fetch(url+'/authorization', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json;charset=utf-8'
@@ -59,8 +57,8 @@ class App extends React.Component {
   componentDidMount(){
 
     if(this.state.token){
-      console.log(this.state.token);
-      fetch(this.state.net.url+'/i-have-token', {
+      
+      fetch(url+'/i-have-token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json;charset=utf-8'
@@ -84,17 +82,34 @@ class App extends React.Component {
   }
 
   onLogin = u => {
-    const socket = new WebSocket("ws://localhost");
+    const socket = new WebSocket(wsUrl);
     const net = Object.assign({}, this.state.net, u);
-    if(net.profile.fullIcon) net.profile.fullIcon = net.dbUrl+net.profile.fullIcon;
-    if(net.profile.icon) net.profile.icon = net.dbUrl+net.profile.icon;
     net.socket = socket;
+    net.emitter = new EventEmitter();
+
     socket.onopen = () => { 
       socket.send(JSON.stringify({type: 'auth', token: u.token})); 
     }
     socket.onclose = (e) =>{
       console.log('Веб-сокет закрыт. Причина:', e.reason);
     }
+
+    net.emitter.on('logout', () => {
+      sessionStorage.clear();
+      localStorage.clear();
+      this.state.net.socket.close();
+      const _net = Object.assign({}, this.state.net, {
+        login: null,
+        profile: null,
+        socket: null,
+        token: null,
+        emitter: null
+      });
+
+      this.setState({
+        net: _net
+      });
+    });
 
     sessionStorage.setItem('token', u.token);
 

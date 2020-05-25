@@ -5,13 +5,13 @@ import { MdMailOutline } from 'react-icons/md'
 import { IoIosArrowBack } from 'react-icons/io'
 import { FaKey } from 'react-icons/fa'
 import { RiAccountCircleLine } from 'react-icons/ri'
+import { url } from './../../constants.jsx'
 
 class LoginPage extends React.Component {
 
 	constructor(props){
 		super(props);
 		this.loadingFlag = false;
-		this.url = props.net.url;
 
 		this.info = {mail: '', name: '', surname: '', pass: '', repeatPass: ''};
 
@@ -52,7 +52,7 @@ class LoginPage extends React.Component {
 
 		//this.loadingFlag = true;
 
-		fetch(this.url+'/registration', {
+		fetch(url+'/registration', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json;charset=utf-8'

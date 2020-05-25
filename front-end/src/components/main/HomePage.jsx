@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Section, ProfileImage, ModalImageEditor } from './tools.jsx'
 import { ModalWindowWrapper } from './../inputs/ModalWindow.jsx'
 import { AlertWrapper } from './../inputs/Alert.jsx'
+import { url } from './../../constants.jsx'
 
 class HomePage extends React.Component {
 
@@ -33,7 +34,7 @@ class HomePage extends React.Component {
   	buf.set(new Uint8Array(buf2), buf1.byteLength);
 
   	//Как тебе такое, Илон Маск?
-    const res = await fetch(this.props.net.url+'/upload-profile-image', {
+    const res = await fetch(url+'/upload-profile-image', {
     	method: 'POST',
       headers: {
         'token': this.props.net.token,
@@ -64,7 +65,10 @@ class HomePage extends React.Component {
 				<AlertWrapper delay={2000} ref={this.alertRef}>
 				<div className="home-page root-block">
 					<header className="profile-header">
-						<ProfileImage src={this.props.net.profile.fullIcon} alt={profile.name + ' ' + profile.surname} changePhoto={this.changePhoto}/>
+						<ProfileImage 
+							src={this.props.net.profile.fullIcon} 
+							alt={profile.name + ' ' + profile.surname} 
+							changePhoto={this.changePhoto}/>
 						<div className="person-info">
 							<h1 className="person-name">{profile.name + ' ' + profile.surname}</h1>
 							<h2 className="person-group">студент <Link to={"/"}>АСУ 17-1б</Link></h2>

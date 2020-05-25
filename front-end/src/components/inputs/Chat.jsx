@@ -1,19 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { RippleButton } from './LoginInputs.jsx'
 import { MdSentimentSatisfied, MdSend } from 'react-icons/md'
 import { CssEmoji, ImgEmoji, findEmoji } from './emoji.jsx'
 
-export default function Chat(props){
+export default class Chat extends React.Component{
 
-	const height = props.height || '50';
-	const lineHeight = props.lineHeight || '25';
+	constructor(props) {
+		super(props);
+		this.height = props.height || '50';
+		this.lineHeight = props.lineHeight || '25';
+		this.textInput = React.createRef();
 
-	const textInput = useRef(null);
-	const [placeholder, setPlaceholder] = useState(true);
-	const [emojiPanel, showEmojiPanel] = useState(false);
+		this.state = {placeholder: true, emojiPanel: false}
+	}
 
-	const send = () => {
-		let p = textInput.current;
+	send = () => {
+		let p = this.textInput.current;
 		let str = "";
 		let ch;
 		while ((ch = p.firstChild) !== null) {
@@ -28,50 +30,50 @@ export default function Chat(props){
 			ch.remove();
 		}
 
-		props.send(str);
+		this.props.send(str);
 
-		checkPlaceholder();
+		this.checkPlaceholder();
 	}
 
-	const keyDown = e => {
+	keyDown = e => {
 		if(e.keyCode === 13 && !e.shiftKey){
-			send();
+			this.send();
 			e.preventDefault();
 		}
 	}
 
-	const checkPlaceholder = () => {
-		const text = textInput.current;
+	checkPlaceholder = () => {
+		const text = this.textInput.current;
 		while(text.firstChild !== null && 
 			(text.firstChild.tagName === 'BR' || text.firstChild.nodeValue === ' '))
 			text.firstChild.remove();
 	
-		if(text.childNodes.length > 0 && placeholder)
-			setPlaceholder(false);
+		if(text.childNodes.length > 0 && this.state.placeholder)
+			this.setState({placeholder: false});
 
-		if(text.childNodes.length === 0 && !placeholder)
-			setPlaceholder(true);
+		if(text.childNodes.length === 0 && !this.state.placeholder)
+			this.setState({placeholder: true});
 	}
 
-	const paste = (e) => {
+	paste = (e) => {
 		e.preventDefault();
     var text = (e.originalEvent || e).clipboardData.getData('text/plain');
-    pasteText(text);
+    this.pasteText(text);
 	}
 
-	const pasteText = (text) => {
+	pasteText = (text) => {
 
-		if(document.activeElement !== textInput.current){
-			textInput.current.focus();
+		if(document.activeElement !== this.textInput.current){
+			this.textInput.current.focus();
 			let sel = document.getSelection();
-			sel.selectAllChildren(textInput.current);
+			sel.selectAllChildren(this.textInput.current);
 			sel.collapseToEnd();
 		}
 
 		text = text.replace(/\n/g, '<br/>')
 
-		if(textInput.current.lastChild && textInput.current.lastChild.tagName === 'BR')
-			textInput.current.lastChild.remove();
+		if(this.textInput.current.lastChild && this.textInput.current.lastChild.tagName === 'BR')
+			this.textInput.current.lastChild.remove();
 	   	
    for(let i = 0; i < text.length; i++){			//Чекнем на иконки
    		let code = text.charCodeAt(i);
@@ -92,56 +94,75 @@ export default function Chat(props){
     document.execCommand("insertHTML", false, text);
 	}
 
-	let timer = -1;
-	const _showEmojiPanel = (e) => {
+	timer = -1;
+	_showEmojiPanel = (e) => {
 		if(e.buttons !== 0)
 			return;
-		if(timer > 0){
-			clearTimeout(timer);
-			timer = -1;
+		if(this.timer > 0){
+			clearTimeout(this.timer);
+			this.timer = -1;
 			return;
 		}
-		showEmojiPanel(true);
+		this.setState({emojiPanel: true});
 	}
 
-	const _hideEmojiPanel = () => {
-		if(timer < 0)
-			timer = setTimeout(() => {
-				showEmojiPanel(false);
-				timer = -1;
+	_hideEmojiPanel = () => {
+		if(this.timer < 0)
+			this.timer = setTimeout(() => {
+				this.setState({emojiPanel: false});
+				this.timer = -1;
 			}, 200);
 	}
 
-	const style = {lineHeight: lineHeight+'px', padding: ((height-lineHeight)/2)+'px 4px', outline: 'none'};
+	focus = () => {
+		this.textInput.current.focus();
+	}
+	
+	render(){
+		const style = {
+			lineHeight: this.lineHeight+'px', 
+			padding: ((this.height-this.lineHeight)/2)+'px 4px', 
+			outline: 'none'};
 
-	return (
-		<div className={"chat " + props.className}>
-			<div className="emoji-button" onMouseOver={_showEmojiPanel} onMouseOut={_hideEmojiPanel}>
-				<RippleButton className={'transparent chat-button' + (emojiPanel?' orange': '')} >
-					<MdSentimentSatisfied size="1.9em"/>
+		return (
+			<div 
+				className={"chat " + this.props.className} 
+				style={{display: this.props.show?'flex':'none'}}
+			>
+				<div 
+					className="emoji-button" 
+					onMouseOver={this._showEmojiPanel} 
+					onMouseOut={this._hideEmojiPanel} 
+				>
+					<RippleButton className={'transparent chat-button' + (this.state.emojiPanel?' orange': '')} >
+						<MdSentimentSatisfied size="1.9em"/>
+					</RippleButton>
+					<EmojiPanel paste={this.pasteText} show={this.state.emojiPanel}/>
+				</div>
+
+				<div className="input">
+					{this.state.placeholder && <div className="placeholder" style={style}>
+						Введите сообщение...
+					</div>}
+					<div 	ref={this.textInput} 
+								contentEditable={true} 
+								style={style} 
+								onInput={this.checkPlaceholder} 
+								onPaste={this.paste}
+								spellCheck={false}
+								onKeyDown={this.keyDown}></div>
+				</div>
+
+				<RippleButton 
+					className={'transparent chat-button send'+(this.state.placeholder?' closed': '')} 
+					onClick={this.send}
+				>
+					<MdSend size="1.9em" style={{transform: 'translateX(2px)'}}/>
 				</RippleButton>
-				<EmojiPanel paste={pasteText} show={emojiPanel}/>
+
 			</div>
-
-			<div className="input">
-				{placeholder && <div className="placeholder" style={style}>
-					Введите сообщение...
-				</div>}
-				<div 	ref={textInput} 
-							contentEditable={true} 
-							style={style} 
-							onInput={checkPlaceholder} 
-							onPaste={paste}
-							spellCheck={false}
-							onKeyDown={keyDown}></div>
-			</div>
-
-			<RippleButton className={'transparent chat-button send'+(placeholder?' closed': '')} onClick={send}>
-				<MdSend size="1.9em" style={{transform: 'translateX(2px)'}}/>
-			</RippleButton>
-
-		</div>
-	);
+		);
+	}
 }
 
 function EmojiPanel (props) {

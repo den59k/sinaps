@@ -303,6 +303,7 @@ $border-color: #BDBDBD
 .chat
 	background-color: white
 	display: flex
+	max-height: 300px
 
 	.input
 		font-size: 0.9rem
@@ -311,6 +312,9 @@ $border-color: #BDBDBD
 		cursor: text
 		user-select: text
 		position: relative
+		overflow: hidden
+		&>div 
+			word-wrap: break-word
 
 	&.not-end
 		box-shadow: 0 -15px 15px -15px rgba(0, 0, 0, 0.1)

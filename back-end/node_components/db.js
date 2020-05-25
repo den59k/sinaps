@@ -18,7 +18,7 @@ module.exports = async (urlConnect, dbName) => {
 		const users = await db.createCollection('users');
 		users.createIndex('login', {unique: true});
 		users.createIndex('email', {unique: true});
-		users.createIndex('bindings');
+		users.createIndex('bindings._id');
 		console.log(`Collection ${chalk.cyan('users')} created`);
 	}
 

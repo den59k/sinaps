@@ -3,6 +3,7 @@ import {Link} from 'react-router-dom';
 import { InputText, InputCheckbox, RippleButton } from './../inputs/LoginInputs.jsx'
 import { MdMailOutline } from 'react-icons/md'
 import { FaKey, FaVk, FaGoogle} from 'react-icons/fa'
+import { url } from './../../constants.jsx'
 
 class LoginPage extends React.Component {
 
@@ -10,7 +11,6 @@ class LoginPage extends React.Component {
 		super(props);
 		this.loadingFlag = false;
 		this.remember = true;
-		this.url = props.net.url;
 
 		this.auth = {login: '', password: ''};
 		this.state = {errors: {login: null, password: null}}
@@ -40,7 +40,7 @@ class LoginPage extends React.Component {
 
 		this.loadingFlag = true;
 
-		fetch(this.url+'/authorization', {
+		fetch(url+'/authorization', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json;charset=utf-8'

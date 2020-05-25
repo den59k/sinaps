@@ -7,7 +7,7 @@ const fs = _fs.promises;
 function createProfileSettings(session){
 
 	const app = session.app;
-	const users = session.users;
+	const tokens = session.tokens;
 	const usersDB = session.usersDB;
 	const public = './public';
 
@@ -35,14 +35,14 @@ function createProfileSettings(session){
 		await fs.writeFile(public+miniImagePath, buffer.slice(req.headers['full-image']));
 		//await fs.writeFile(public+filePath, buffer);
 
-		await usersDB.updateOne({_id: users.get(req.headers.token)._id}, {$set: {icon: miniImagePath, fullIcon: fullImagePath}});
-		const {icon, fullIcon} = users.get(req.headers.token).profile;
+		await usersDB.updateOne({_id: tokens.get(req.headers.token)._id}, {$set: {icon: miniImagePath, fullIcon: fullImagePath}});
+		const {icon, fullIcon} = tokens.get(req.headers.token).profile;
 
 		if(icon && _fs.existsSync(public+icon)) await fs.unlink(public+icon);
 		if(fullIcon && _fs.existsSync(public+fullIcon)) await fs.unlink(public+fullIcon);
 
-		users.get(req.headers.token).profile.icon = miniImagePath;
-		users.get(req.headers.token).profile.fullIcon = fullImagePath;
+		tokens.get(req.headers.token).profile.icon = miniImagePath;
+		tokens.get(req.headers.token).profile.fullIcon = fullImagePath;
 
 		res.send({fullIcon: fullImagePath, icon: miniImagePath });
 	}catch(e){

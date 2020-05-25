@@ -1,9 +1,10 @@
-const crypto = require('crypto')
-const {nanoid} = require('nanoid')
+const { nanoid } = require('nanoid')
+const EventEmitter = require('events')
 const createAuthSystem = require('./auth-system.js')
 const createProfileSettings = require('./profile-settings.js')
 const createGroupSystem = require('./groups-system.js')
 const createMessageSystem = require('./messages-system.js')
+
 
 //const mongoUrl = 'mongodb://admin:admin@localhost:27017/?authSource=sinaps-db';
 const mongoUrl = 'mongodb://localhost:27017';
@@ -16,7 +17,15 @@ class ServerSession{
 		this.wss = wss;
 		this.init();
 
+		this.tokens = new Map();
 		this.users = new Map();
+
+		this.emitter = new EventEmitter();
+
+		/*app.use((req, res, next) => {
+			console.log(req.url);
+			next();
+		});*/
 	}
 
 	async init(){
@@ -33,40 +42,70 @@ class ServerSession{
 
 		this.wss.on('connection', ws => {
 			const timeoutDrop = setTimeout(() => {
-				ws.close(4190, 'not autorized');
+				ws.close(4190, 'not authorized');
 			}, 5000);
-			ws.on('message', text => {
+			ws.once('message', () => clearTimeout(timeoutDrop));
 
+			ws.on('message', text => {
 				let message = JSON.parse(text);
+				//console.log(message);
+				const token = message.token;
+
+				if(!token || !this.tokens.has(token)){
+					ws.close(4010, 'wrong token');
+					return;
+				}
 
 				if(message.type === 'auth'){
-					clearTimeout(timeoutDrop);
-					if(!message.token || !this.users.has(message.token)){
-						ws.close(4010, 'wrong token');
-						return;
-					}
-					this.users.get(message.token).socket = ws;
-					console.log(message.token);
+					this.tokens.get(token).sockets.set(token, ws);
+					ws.once('close', () => {
+						this.tokens.get(token).sockets.delete(token);
+
+						setTimeout(() => {
+							this.tokens.delete(token);
+						}, 5000);
+					});
 				}
+
+				this.emitter.emit(message.type, message, this.tokens.get(token), ws);
 
 			});
 		});
 	}
 
+	//Вот здесь и происходит авторизация
 	loginUser(user){
-		const token = nanoid(4);
-		const _user = { token,
-			profile: { name: user.name, surname: user.surname, icon: user.icon, fullIcon: user.fullIcon, login: user.login }};
+		const idstr = user._id.toHexString();
 
-		const userInfo = Object.assign({}, _user);
+		if(!this.users.has(idstr)){
+			this.users.set(idstr, {
+				_id: user._id,
+				sockets: new Map,
+				profile: { 
+					name: user.name, 
+					surname: user.surname, 
+					icon: user.icon, 
+					fullIcon: user.fullIcon, 
+					login: user.login,
+					unread: user.unread
+				}
+			})
+		}
 
-		_user._id = user._id;
-		this.users.set(token, _user);
+		const _user = this.users.get(idstr);
 
-		return userInfo;
+		const token = nanoid(8);
+		this.tokens.set(token, _user);
+
+		setTimeout(() => {
+			if(!_user.sockets.has(token))
+				this.tokens.delete(token);
+		}, 4000);
+		
+		return { token, profile: _user.profile };
 	}
 
-	hasUser = token => this.users.has(token);
+	hasUser = token => this.tokens.has(token);
 
 	existLink = async (link) => {
 		let exist = await this.usersDB.find({login: link}, {limit: 1, projection: {_id: 1}}).count();

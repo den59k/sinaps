@@ -1,13 +1,23 @@
 import React from 'react'
+import { dbUrl } from './../constants.jsx'
 
 function Icon(props) {
 	const size = props.size || 40;
-	if(props.profile.icon){
-		return <img {...props} className="icon" src={props.profile.icon} alt={props.profile.name + ' '+props.profile.surname}
+
+	let src = props.src?(dbUrl+props.src):null;
+	let name = props.name;
+
+	if(props.profile){
+		name = props.profile.name + ' '+props.profile.surname;
+		src = props.profile.icon?(dbUrl+props.profile.icon):null;
+	}
+
+	if(src){
+		return <img className="icon" src={src} alt={name}
 						style={{width: size+'px', height: size+'px'}}/>
 	}else{
-		const text = props.profile.name[0];
-		return <div {...props} style={{backgroundColor: '#4F0087', width: size+'px', height: size+'px',
+		const text = name[0];
+		return <div style={{backgroundColor: '#4F0087', width: size+'px', height: size+'px',
 							lineHeight: (size-4)+'px', fontSize: (size/2)+'px'}} 
 								className={"icon-empty icon "+props.className}>{text}</div>
 	}

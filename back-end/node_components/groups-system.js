@@ -4,7 +4,7 @@ const translit = require('cyrillic-to-translit-js')()
 function createGroupSystem(session){
 
 	const app = session.app;
-	const users = session.users;
+	const tokens = session.tokens;
 	const usersDB = session.usersDB;
 	const groupsDB = session.groupsDB;
 
@@ -29,7 +29,7 @@ function createGroupSystem(session){
 			if(!req.headers.token || !session.hasUser(req.headers.token))
 				throw 'Ошибка авторизации';
 
-			const user = users.get(req.headers.token);
+			const user = tokens.get(req.headers.token);
 			const name = req.body.name;
 			if(reg.name.length > 30){
 				res.send({errors: {name: "Слишком длинное название"}});
@@ -94,7 +94,7 @@ function createGroupSystem(session){
 			if(!req.headers.token || !session.hasUser(req.headers.token))
 				throw 'Ошибка авторизации';
 
-			const id = users.get(req.headers.token)._id;
+			const id = tokens.get(req.headers.token)._id;
 
 			const myGroups = await groupsDB.find({users: id}, 
 				{limit: 50, projection: {_id: 0, admin: 1, link: 1, name: 1, userCount:1}, sort: {userCount: -1}}).toArray();

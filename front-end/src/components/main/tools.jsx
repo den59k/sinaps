@@ -3,6 +3,7 @@ import { MdFileUpload, MdZoomOut, MdZoomIn } from 'react-icons/md'
 import { ModalWindow } from './../inputs/ModalWindow.jsx'
 import { HorizontalSlider } from './../inputs/LoginInputs.jsx'
 import Loader from './../inputs/Loader.jsx'
+import { dbUrl } from './../../constants.jsx'
 
 export class ProfileImage extends React.Component {
 
@@ -28,8 +29,9 @@ export class ProfileImage extends React.Component {
 
 	render(){
 		let render;
+
 		if(this.props.src)
-			render = <img className="full-profile-image" src={this.props.src} alt={this.props.alt} />
+			render = <img className="full-profile-image" src={dbUrl+this.props.src} alt={this.props.alt} />
 		else
 			render = <div className="full-profile-image null-image" alt={this.props.alt}></div>
 
