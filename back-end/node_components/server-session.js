@@ -58,12 +58,20 @@ class ServerSession{
 
 				if(message.type === 'auth'){
 					this.tokens.get(token).sockets.set(token, ws);
+					//console.log("Токен авторизирован - "+token);
 					ws.once('close', () => {
-						this.tokens.get(token).sockets.delete(token);
+						const suser = this.tokens.get(token);
+						suser.sockets.delete(token);
 
+						//Удаляем токен после бездействия - он нам как-бы и не нужен
 						setTimeout(() => {
-							this.tokens.delete(token);
-						}, 5000);
+							if(this.tokens.has(token)){
+								this.tokens.delete(token)
+								suser.tokenCount--;
+								//console.log("Удален токен: "+token+'. Токенов: '+suser.tokenCount);
+								this.checkUser(suser);
+							}
+						}, 2000);
 					});
 				}
 
@@ -76,42 +84,84 @@ class ServerSession{
 	//Вот здесь и происходит авторизация
 	loginUser(user){
 		const idstr = user._id.toHexString();
-
 		if(!this.users.has(idstr)){
 			this.users.set(idstr, {
 				_id: user._id,
 				sockets: new Map,
+				tokenCount: 0,
 				profile: { 
 					name: user.name, 
 					surname: user.surname, 
 					icon: user.icon, 
-					fullIcon: user.fullIcon, 
 					login: user.login,
+					fullIcon: user.fullIcon, 
 					unread: user.unread
 				}
 			})
+			console.log(`Пользователь ${user.login} вошел на сайт. `+
+				`Пользователей на сайте - ${this.users.size}`);
 		}
 
 		const _user = this.users.get(idstr);
 
+		//Если мы хотели до этого удалить пользователя
+		if(_user.timeout){
+			clearTimeout(_user.timeout);
+			delete _user.timeout;
+		}
+
 		const token = nanoid(8);
 		this.tokens.set(token, _user);
+		_user.tokenCount++;
+		//console.log('Добавлен токен - '+token+'. Токенов: '+_user.tokenCount);
 
+		//Здесь мы удаляем токен, если юзер не смог к нему приконектится по токену
 		setTimeout(() => {
-			if(!_user.sockets.has(token))
+			if(this.tokens.has(token) && !_user.sockets.has(token)){
 				this.tokens.delete(token);
-		}, 4000);
+				_user.tokenCount--;
+				//console.log("Удален токен: "+token+'. Токенов: '+_user.tokenCount);
+				this.checkUser(_user);
+			}
+		}, 2000);
 		
 		return { token, profile: _user.profile };
 	}
 
-	hasUser = token => this.tokens.has(token);
+	checkUser(suser){
+		if(suser.tokenCount === 0){
+			suser.timeout = setTimeout(() => {
+				this.users.delete(suser._id.toHexString());
+				console.log(`Пользователь ${suser.profile.login} покинул сайт. `+
+					`Пользователей на сайте - ${this.users.size}`);
+			}, 4000);
+		}
+	}
 
-	existLink = async (link) => {
+	hasUser (token) {
+		return this.tokens.has(token);
+	}
+
+	async existLink(link) {
 		let exist = await this.usersDB.find({login: link}, {limit: 1, projection: {_id: 1}}).count();
 		let exist2 = await this.groupsDB.find({link}, {limit: 1, projection: {_id: 1}}).count();
 
 		return (exist !== 0 || exist2 !== 0);
+	}
+
+	async getUser (_id){
+		if(!_id)
+			return null;
+		const idstr = _id.toHexString();
+		if(this.users.has(idstr)){
+			const u = this.users.get(idstr).profile;
+			return {online: true, login: u.login, name: u.name, surname: u.surname, icon: u.icon};
+		}
+		
+		const u = await this.usersDB.findOne({_id}, 
+			{projection: {_id: 0, login: 1, name: 1, surname: 1, icon: 1}});
+		u.online = false;
+		return u;
 	}
 }
 

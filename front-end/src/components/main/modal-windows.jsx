@@ -1,7 +1,11 @@
-import React from 'react'
+import React, {useEffect, useState} from 'react'
 import { ModalWindow, ModalWindowBase } from './../inputs/ModalWindow.jsx'
-import { InputText, SegmentButton } from './../inputs/LoginInputs.jsx'
+import { InputText, SegmentButton, RippleButton, RippleA } from './../inputs/LoginInputs.jsx'
 import { TiGroup } from 'react-icons/ti'
+import { MdExpandMore } from 'react-icons/md'
+import { url } from './../../constants'
+import { numeral } from './../../tools/rus.js';
+import { Icon } from './../utils.jsx'
 
 export class ModalGroupAdd extends React.Component {
 
@@ -23,12 +27,12 @@ export class ModalGroupAdd extends React.Component {
 
 	submit = () => {
 		this.roomInfo.name = this.roomInfo.name.trim();
-		if(this.roomInfo.name.length < 3){
+		if(this.roomInfo.name.length < 4){
 			this.setState({errors: {name: 'Слишком короткое название'}})
 			return;
 		}
 
-		fetch(this.url+'/create-new-group', {
+		fetch(url+'/create-new-group', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json;charset=utf-8',
@@ -41,9 +45,9 @@ export class ModalGroupAdd extends React.Component {
 	  		this.setState({errors: resp.errors});
 	  		return;
 	  	}
-	  	if(resp.success)
-	  		this.props.success(resp.success);
-	  	console.log(resp);
+
+  		this.props.success(resp);
+
 	  });
 
 	}
@@ -68,19 +72,77 @@ export class ModalGroupAdd extends React.Component {
 
 }
 
-export class ModalGroup extends React.Component {
+export function ModalGroup (props) {
 
-	componentDidMount
+	const [group, setGroup] = useState(null);
+	const token = props.net.token;
 
-	render(){
-		return (
-			<ModalWindowBase title={this.props.link} cancel={this.props.cancel} success={"Вступить"} disabled={true}>
-				<div style={{width: '400px'}}>
+	useEffect(() => {
 
+		fetch(url+'/get-group/'+props.link, {
+			method: 'GET',
+			headers: { token }
+		}).then(resp => resp.json())
+		.then(jresp => {
+			if(jresp.error)
+				console.error(jresp);
+			setGroup(jresp);
+		});
+	}, [props.link, token]);
 
-				</div>
-			</ModalWindowBase>
-		);
+	const onSubmit = () => {
+		fetch(url+'/join-group', {
+			method: 'POST',
+			headers: { 
+				token,
+				'Content-Type': 'application/json;charset=utf-8'
+		 	},
+		 	body: JSON.stringify({group: props.link})
+		}).then(resp => resp.json())
+		.then(jresp => {
+			if(jresp.error){
+				console.error(jresp.error);
+				props.onError();
+			}
+			else
+				props.onSuccess(jresp);
+		});
 	}
+
+	let title = props.link;
+	if(group !== null)
+		title = group.name;
+	return (
+		<ModalWindowBase 
+			title={title} 
+			cancel={props.cancel} 
+			success={"Вступить"} 
+			disabled={group===null}
+			className="group-info"
+		>
+			{(group !== null) && <div style={{width: '400px', textAlign: 'center'}}>
+				<RippleButton className="transparent more">
+					{group.userCount + ' ' + numeral(group.userCount, 'участник', 'участника', 'участников')}
+					{(group.users > 6) && <MdExpandMore size="1.5em"/>}
+				</RippleButton>
+				<div style={{margin: '3px 0'}}>
+					{group.users.map(user => <Icon profile={user} key={user.login} size="50"/>)}
+				</div>
+				{group.my?(
+					<RippleA to={'/'+props.link} >Перейти к сообщениям</RippleA>
+				):(
+				<div className="modal-buttons">
+					<RippleButton className="transparent" onClick={props.cancel}>
+						Отмена
+					</RippleButton>
+					<RippleButton onClick={onSubmit}>
+						Вступить
+					</RippleButton>
+				</div>
+				)
+				}
+			</div>}
+		</ModalWindowBase>
+	);
 
 }

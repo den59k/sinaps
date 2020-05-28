@@ -42,7 +42,8 @@ class App extends React.Component {
     fetch(url+'/authorization', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json;charset=utf-8'
+        'Content-Type': 'application/json;charset=utf-8',
+        'token': '000000'
       },
       body: JSON.stringify(auth) })
     .then(response => response.json())
@@ -61,7 +62,8 @@ class App extends React.Component {
       fetch(url+'/i-have-token', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json;charset=utf-8'
+          'Content-Type': 'application/json;charset=utf-8',
+          token: this.state.token
         },
         body: JSON.stringify({token: this.state.token}) })
       .then(response => response.json())

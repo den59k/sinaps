@@ -1,6 +1,7 @@
 import React from 'react'
 import {RippleButton, RippleA} from './LoginInputs.jsx'
 import Loader from './Loader.jsx'
+import cn from 'classnames'
 
 export class ModalWindowBase extends React.Component {
 
@@ -33,7 +34,7 @@ export class ModalWindowBase extends React.Component {
 
 		return (
 			<div className={'modal-window-bkg' + this.state.bkgClassName} onMouseDown={this.bkgClick}>
-				<div className={'modal-window' + this.state.modalClassName}>
+				<div className={cn('modal-window', this.state.modalClassName, this.props.className)}>
 					{this.props.disabled && <div className="disabled-fill"><Loader size="70"/></div>}
 					<h3 className="modal-title">{this.props.title}</h3>
 					{this.props.children}

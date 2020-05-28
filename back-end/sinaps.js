@@ -20,6 +20,17 @@ const server = isHTTPS?https.createServer({
 const app = require('restana')( { server } );
 app.use(cors());
 
+const html = fs.readFileSync('./public/index.html');
+app.use((req, res, next) => {
+	//Здесь мы чекнем, если у нас запрос на страницу, то вернем главную из кеша прям
+	if(req.headers.token === undefined)
+		if(req.url.indexOf('.') < 0){
+			res.send(html);
+			return;
+		}
+	next();
+});
+
 app.use(function(req, res, next) {
 	res.setHeader('Access-Control-Allow-Origin', '*');
 	res.setHeader('Access-Control-Allow-Methods', 'GET, POST');

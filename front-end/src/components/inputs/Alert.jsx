@@ -6,22 +6,28 @@ export class AlertWrapper extends React.Component {
 		super(props);
 		this.state = {className: '', message: null}
 		this.delay = this.props.delay || 2000;
+		this.timeout = -1;
 	}
 
 	alert(message){
 		if(this.timeout)
 			clearTimeout(this.timeout);
 		this.setState({message});
-		setTimeout(() => this.setState({className: 'alert-active'}), 50);
+		this.timeout = setTimeout(() => this.setState({className: 'alert-active'}), 50);
 		this.timeout = setTimeout(() => {
 			this.setState({className: 'alert-exit'});
-			setTimeout(() => this.setState({message: null}), 500); 
+			this.timeout = setTimeout(() => {
+				this.setState({message: null});
+				this.timeout = -1;
+			}, 500); 
 		}, this.delay);
 	}
 
 	componentWillUnmount(){
-		if(this.timeout)
+		if(this.timeout >= 0){
 			clearTimeout(this.timeout);
+			this.timeout = -1;
+		}
 	}
 
 	render(){

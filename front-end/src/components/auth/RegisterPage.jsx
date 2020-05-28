@@ -55,7 +55,8 @@ class LoginPage extends React.Component {
 		fetch(url+'/registration', {
 			method: 'POST',
 			headers: {
-				'Content-Type': 'application/json;charset=utf-8'
+				'Content-Type': 'application/json;charset=utf-8',
+				'token': '000000'
 	  	},
 			body: JSON.stringify(this.info) })
 		.then(response => response.json())
@@ -105,7 +106,7 @@ class LoginPage extends React.Component {
 										onChange={this.onChange}>
 								<MdMailOutline size="1.6em"/>
 							</InputText>
-							<InputCheckbox style={{margin: '0 22px'}} onChange={(str) => this.remember = str}>Получать уведомления</InputCheckbox>
+							<InputCheckbox style={{margin: '12px 22px'}} onChange={(str) => this.remember = str}>Получать уведомления</InputCheckbox>
 						</div>
 						<InputText 	fields={{name: 'Имя', surname: 'Фамилия'}} type="text"
 											onChange={this.onChange} error={this.state.errors.name}>
@@ -115,7 +116,7 @@ class LoginPage extends React.Component {
 											onChange={this.onChange} error={this.state.errors.pass}>
 							<FaKey size="1.3em"/>
 						</InputText>
-						<div style={{textAlign: 'left'}}>
+						<div className="last-button">
 							<RippleButton>ПРОДОЛЖИТЬ</RippleButton>
 						</div>
 					</form>

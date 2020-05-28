@@ -43,7 +43,8 @@ class LoginPage extends React.Component {
 		fetch(url+'/authorization', {
 			method: 'POST',
 			headers: {
-				'Content-Type': 'application/json;charset=utf-8'
+				'Content-Type': 'application/json;charset=utf-8',
+				'token': '000000'
 	  	},
 			body: JSON.stringify(this.auth) })
 		.then(response => response.json())

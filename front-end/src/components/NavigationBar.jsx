@@ -44,7 +44,7 @@ class NavigationBar extends React.Component {
 		const routes = [
 			{ link: '/'+this.props.profile.login, description: this.props.profile.name,
 				 Component: <Icon className="hover-opacity" profile={this.props.profile}/> },
-			{ link: '/c', description: 'Конференции',
+			{ link: '/c', description: 'Группы',
 				Component: <TiGroup size="1.2em"/> },
 			{ link: '/', description: 'Сообщения',
 				Component: <MdMessage/> },

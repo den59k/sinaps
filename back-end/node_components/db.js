@@ -35,7 +35,8 @@ module.exports = async (urlConnect, dbName) => {
 		const groups = await db.createCollection('groups');
 		groups.createIndex('link', {unique: true});
 		groups.createIndex('binding', {unique: true});
-		
+		groups.createIndex('users');
+
 		console.log(`Collection ${chalk.cyan('groups')} created`);
 	}
 

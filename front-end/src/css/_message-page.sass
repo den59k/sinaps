@@ -96,6 +96,18 @@ $bar-height: 65px
 		position: absolute
 		left: 0
 
+	&.mine
+		.profile-name
+			color: #FF5C00
+
+.message-date
+	text-align: center
+	margin-top: 6px
+	margin-bottom: 14px
+	margin-right: 54px
+	font-size: 0.9rem
+	color: #7C7C7C
+
 .next
 	margin-top: 2px
 
@@ -127,7 +139,7 @@ $bar-height: 65px
 
 .profile-name
 	font-weight: 600
-	color: #FF5C00
+	color: #333333
 
 .unread
 	color: #FF5C00
@@ -156,9 +168,6 @@ $bar-height: 65px
 		.content
 			overflow: hidden
 
-	.profile-name
-		color: #333333
-
 	.profile-name, .time
 		margin-bottom: 9px
 
@@ -171,8 +180,15 @@ $bar-height: 65px
 
 	&.active
 		background-color: #12B3B2
+		.mini-icon
+			border-color: #12B3B2
+			background-color: white
 		*
 			color: white !important
+
+		.icon-empty 
+			background-color: white !important
+			color: #242424 !important
 
 	.message-text
 		text-overflow: ellipsis
@@ -183,7 +199,7 @@ $bar-height: 65px
 		font-weight: 600
 		color: #FF5C00
 
-	.icon
+	.icon-wrapper
 		margin-right: 10px
 		flex-shrink: 0
 		float: left

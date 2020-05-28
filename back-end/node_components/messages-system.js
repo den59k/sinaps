@@ -78,10 +78,11 @@ function createMessageSystem(session){
 			//Здесь мы отправляем сообщения всем юзерам в сети
 			for(let id of bind.users){
 				const idstr = id.toHexString();
-				if(id.equals(suser._id))
+				if(bindQuery.isGroup || id.equals(suser._id))
 					_message.bind = link;
 				else
 					_message.bind = suser.profile.login;
+
 				if(session.users.has(idstr)){
 					session.users.get(idstr).sockets.forEach((socket, token) => {
 						if(token !== stoken)
@@ -102,10 +103,10 @@ function createMessageSystem(session){
 	});
 
 	const createBindQuery = async (suser, link) => {
-		const group = await groupsDB.findOne({link});
+		const group = await groupsDB.findOne({link}, {projection: {binding: 1}});
 
 		if(group !== null){
-			return { link, isGroup: true};
+			return { _id:group.binding, isGroup: true};
 
 		}else{
 
@@ -145,67 +146,74 @@ function createMessageSystem(session){
 			if(bind === suser.profile.login)
 				throw 'self';
 
-			const group = await groupsDB.findOne({link: bind});
+			const bindQuery = await createBindQuery(suser, bind);
 
-			if(group !== null){
+			if(bindQuery === null)
+				throw 'not exist';
 
+			//const group = await groupsDB.findOne({link: bind});
 
-				res.send({kek: 'group'});
-			}else{
+			//const user = await usersDB.findOne({login: bind}, {projection: {login: 1, name: 1, surname: 1, icon: 1}});
 
-				const user = await usersDB.findOne({login: bind}, {projection: {login: 1, name: 1, surname: 1, icon: 1}});
+			let skip = 0;
 
-				if(user === null)
-					throw 'not exist';
-
-				const ids = (suser._id < user._id) ? [suser._id, user._id] : [user._id, suser._id];
-
-				let skip = 0;
-				if(last === 0)
-					skip = -limit
-				else{
-					skip = last-limit;
-					if(skip < 0){
-						limit += skip;
-						skip = 0;
-					}
+			if(last === 0)
+				skip = -limit
+			else{
+				skip = last-limit;
+				if(skip < 0){
+					limit += skip;
+					skip = 0;
 				}
-
-				const binding = await bindsDB.findOne({users: ids, isGroup: false}, {
-					projection: {
-						isGroup: 0, 
-						timestamp: 0, 
-						users: 0, 
-						messages: limit > 0?({ $slice: [skip, limit] }):0
-					}
-				});
-
-				let messages = [];
-				let messageCount = 0;
-
-				if(binding && binding.messages){
-					await readMessages(suser, binding);
-					messages = binding.messages;
-					messageCount = binding.messageCount;
-				}
-
-				for(let el of messages){
-					const u = await usersDB.findOne({_id: el.user}, 
-						{projection: {_id: 0, login: 1, name: 1, surname: 1, icon: 1}});
-					el.user = u;
-				}
-				
-				delete user._id;
-				res.send({
-					link: user.login, 
-					name: user.name+" "+user.surname, 
-					icon: user.icon, 
-					messages, 
-					messageCount,
-					readed: limit>1?messageCount:messageCount-1
-				});
-
 			}
+
+			const binding = await bindsDB.findOne(bindQuery, {
+				projection: {
+					timestamp: 0, 
+					users: 0, 
+					messages: limit > 0?({ $slice: [skip, limit] }):0
+				}
+			});
+
+			let messages = [];
+			let messageCount = 0;
+
+			if(binding && binding.messages){
+				await readMessages(suser, binding);
+				messages = binding.messages;
+				messageCount = binding.messageCount;
+			}
+
+			for(let el of messages){
+				el.user = await session.getUser(el.user);
+			}
+			
+			const bindResponse = {
+				link: bind,
+				isGroup: bindQuery.isGroup,
+				messages, 
+				messageCount,
+				readed: limit>1?messageCount:messageCount-1,
+			}
+
+
+			if(bindQuery.isGroup){
+				const group = await groupsDB.findOne(
+					{ link: bind }, 
+					{ projection: {_id: 0, name: 1, icon: 1} });
+				bindResponse.name = group.name;
+				bindResponse.icon = group.icon;
+			}else{
+				//Вытащим id из bindQuery, чтобы найти юзера по ид
+				const _id = bindQuery.users[0].equals(suser._id)?bindQuery.users[1]:bindQuery.users[0]
+				const user = await session.getUser(_id);
+				bindResponse.name = user.name+" "+user.surname;
+				bindResponse.icon = user.icon;
+				bindResponse.online = user.online;
+			}
+
+			res.send(bindResponse);
+
 		}catch(e){
 			console.log(e);
 			res.send({error: e}, 500);
@@ -263,20 +271,20 @@ function createMessageSystem(session){
 				if(bind.isGroup){
 					const group = await groupsDB.findOne({binding: bind._id}, {projection: {_id: 0}});
 
-					bind.group = group;
 					bind.link = group.link;
+					bind.icon = group.icon;
+					bind.name = group.name;
 				}else{
 					const b = await bindsDB.findOne({_id: bind._id}, {projection: {_id: 0, users: 1}});
 
 					for(let i = 0; i < b.users.length; i++)
 						if(!b.users[i].equals(suser._id)){
 
-							const user = await usersDB.findOne({_id: b.users[i]}, 
-							{	projection: {_id: 0, name: 1, surname: 1, login: 1, icon: 1} });
-
+							const user = await session.getUser(b.users[i]);
 							bind.link = user.login;
 							bind.name = user.name+" "+user.surname;
 							bind.icon = user.icon;
+							bind.online = user.online
 						}
 
 				}

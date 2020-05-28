@@ -5,6 +5,8 @@ import { ModalWindowWrapper } from './../inputs/ModalWindow.jsx'
 import { MdSearch, MdMoreVert } from 'react-icons/md'
 import { ModalGroupAdd, ModalGroup } from './modal-windows.jsx'
 import { AlertWrapper } from './../inputs/Alert.jsx'
+import { url } from './../../constants'
+import { Icon } from './../utils.jsx';
 
 class ConferencesPage extends React.Component {
 
@@ -19,7 +21,7 @@ class ConferencesPage extends React.Component {
 	}
 
 	componentDidMount(){
-		fetch(this.props.net.url+'/get-groups', {
+		fetch(url+'/get-groups', {
 			method: 'GET',
 			headers: {
 				token: this.props.net.token
@@ -30,21 +32,37 @@ class ConferencesPage extends React.Component {
 	  		console.error(jresp.errors);
 	  		return;
 	  	}
-
 	  	this.setState({myGroups: jresp.myGroups, otherGroups: jresp.otherGroups});
 
 	  });
 	}
 
-	onSuccess = str => {
-		console.log(str);
+	onSuccess = group => {
+		
 		this.props.history.push('/c');
-		setTimeout(() => this.alertRef.current.alert(`Комната "${str.name}" создана`), 300);
+		this.setState({myGroups: [group, ...this.state.myGroups]});
+		this.alert(`Комната "${group.name}" создана`);
 	}
 
 	onClickRow = (group) => {
 		this.props.history.push('/c/'+group.link);
-		console.log(group);
+	}
+
+	successJoinToRoom = (group) => {
+		this.props.history.push('/c');
+		this.alert(`Вы добавлены в группу "${group.name}"`);
+		this.setState({myGroups: [group, ...this.state.myGroups]});
+
+		const otherGroups = this.state.otherGroups;
+		for(let i = 0; i < otherGroups.length; i++)
+			if(otherGroups[i].link === group.link){
+				this.setState({otherGroup: otherGroups.slice(0, i).concat(otherGroups.slice(i+1))});
+				break;
+			}
+	}
+
+	alert = (str) => {
+		setTimeout(() => this.alertRef.current.alert(str), 250);
 	}
 
 	render() {
@@ -57,8 +75,14 @@ class ConferencesPage extends React.Component {
 					cancel={() => this.props.history.push('/c')} 
 					net={this.props.net} 
 					success={this.onSuccess}/>
-
-			return <ModalGroup link={match.params.room} cancel={() => this.props.history.push('/c')} />;
+					
+			return <ModalGroup 
+				net={this.props.net}
+				link={match.params.room} 
+				cancel={() => this.props.history.push('/c')} 
+				onSuccess={this.successJoinToRoom}
+				onError={() => this.alert(`При добавлении к комнате возникла ошибка`)}
+			/>;
 		}
 
 		return (
@@ -79,12 +103,12 @@ class ConferencesPage extends React.Component {
 					</header>
 					<main className="conferences">
 
-						{this.state.myGroups && this.state.myGroups.length > 0 && 
+						{this.state.myGroups && this.state.myGroups.length > -1 && 
 							<GroupTable onClickRow={this.onClickRow} title="Группы с вами" 
 								groups={this.state.myGroups} filter={this.state.filter}/>}
 
-						{this.state.myGroups && this.state.myGroups.length > 0 && 
-							<GroupTable onClickRow={this.onClickRow} title="Остальные открытые группы" 
+						{this.state.otherGroups && this.state.otherGroups.length > -1 && 
+							<GroupTable onClickRow={this.onClickRow} title="Прочие открытые группы" 
 								groups={this.state.otherGroups} filter={this.state.filter}/>}
 
 					</main>
@@ -115,6 +139,7 @@ function GroupTable(props) {
 			<table className="group-table">
 				<thead>
 					<tr>
+						<th></th>
 						<th className="td-title">Название</th>
 						<th>Всего участников</th>
 						<th>Начало конференции</th>
@@ -125,11 +150,12 @@ function GroupTable(props) {
 				<tbody>
 					{groups.map(el => (
 						<tr className="tr-group" key={el.link} onClick={() => props.onClickRow(el)}>
+							<td className="group-icon"><Icon src={el.icon} name={el.name} size="35" className="group"/></td>
 							<td className="td-title">{el.name}</td>
 							<td>{el.userCount}</td>
 							<td></td>
 							<td>{el.admin.name + ' ' + el.admin.surname}</td>
-							<td style={{padding: 0, width: '50px'}}>
+							<td className="group-more">
 								<RippleButton className="transparent more-button">
 									<MdMoreVert size="1.4em"/>
 								</RippleButton>

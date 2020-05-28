@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Section, ProfileImage, ModalImageEditor } from './tools.jsx'
 import { ModalWindowWrapper } from './../inputs/ModalWindow.jsx'
 import { AlertWrapper } from './../inputs/Alert.jsx'
-import { url } from './../../constants.jsx'
+import { url } from './../../constants'
 
 class HomePage extends React.Component {
 

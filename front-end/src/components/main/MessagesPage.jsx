@@ -1,13 +1,13 @@
 import React from 'react'
 import { InputText } from './../inputs/LoginInputs.jsx'
 import { MdSearch } from 'react-icons/md'
-import { Icon } from './../utils.jsx';
+import { Icon, BindIcon } from './../utils.jsx';
 import Chat from './../inputs/Chat.jsx'
 import { Message } from './messages.jsx'
 import { Link } from 'react-router-dom'
 import { url } from './../../constants.jsx'
 import easeInOut from 'eases/quad-in-out'
-import {StringMonth} from './../../tools/rus.js'
+import { getDate } from './../../tools/rus.js'
 
 function getScroll(m){
 	return m.scrollHeight - m.scrollTop - m.clientHeight;
@@ -46,6 +46,7 @@ class MessagesPage extends React.Component {
 		if(prevState.bind !== this.state.bind){
 			const el = this.messagesRef.current;
 			el.scrollTop = el.scrollHeight;
+			setTimeout(() => this.loadingBind = false, 0);
 			this.chatRef.current.focus();
 		}
 
@@ -70,7 +71,7 @@ class MessagesPage extends React.Component {
 		const anim = time => {
 			if(this.scrollFlag !== this.messagesRef.current.scrollTop)
 				return;
-			let timeFraction = Math.min((time - startTime) / 170, 1);
+			let timeFraction = Math.min((time - startTime) / 140, 1);
 
 			timeFraction = easeInOut(timeFraction);
 
@@ -84,8 +85,27 @@ class MessagesPage extends React.Component {
 
 	}
 
-	clearScroll = () => {
-		
+	fetchingFlag = false
+	onScrollMessage = (e) => {
+		const bind = this.state.bind;
+		if(	bind && 
+				this.messagesRef.current.scrollTop < 500 &&
+				bind.messages[0].index > 0 && !this.fetchingFlag && !this.loadingBind){
+				this.fetchingFlag = true;
+				setTimeout(() => this.fetchingFlag = false, 1000);
+				fetch(url+'/get-bind/'+bind.link+'?limit=100&last='+bind.messages[0].index, {
+					method: 'GET',
+					headers: { token: this.props.net.token }
+				}).then(resp => resp.json())
+				.then(jresp => {
+					if(jresp.error){
+						console.log(jresp.error);
+						return;
+					}
+					bind.messages = jresp.messages.concat(bind.messages);
+					this.setState({bind});
+				});
+			}
 	}
 
 	componentDidMount(){
@@ -99,7 +119,6 @@ class MessagesPage extends React.Component {
 	  		console.error(jresp.error);
 	  		return;
 	  	}
-
 	  	this.setState({ binds: jresp.binds });
 
 			if(this.props.match.params.bind)
@@ -139,9 +158,9 @@ class MessagesPage extends React.Component {
 				break;
 			}
 		}
-
+		this.loadingBind = true;
 		if(bindIndex < 0){
-			fetch(url+'/get-bind/'+str+'?limit=100', {
+			fetch(url+'/get-bind/'+str+'?limit=50', {
 				method: 'GET',
 				headers: {
 					token: this.props.net.token
@@ -153,6 +172,7 @@ class MessagesPage extends React.Component {
 			});
 		}else{
 			//Если у первого сообщения индекс не нулевой, значит нужно обновить ленту сообщений
+			//Он при обновлении прочитает сообщения автоматически)
 			if(bind.messages[0].index > 0 && bind.messages.length < 50){
 				fetch(url+'/get-bind/'+str+'?limit=50&last='+bind.messages[0].index, {
 					method: 'GET',
@@ -167,7 +187,6 @@ class MessagesPage extends React.Component {
 
 						const list = [...this.state.binds];
 						list[bindIndex] = jresp;
-
 						this.setState({binds: list, bind: jresp});
 					}
 				});
@@ -190,6 +209,8 @@ class MessagesPage extends React.Component {
 
 	sendMessage = (text) => {
 		if(this.state.bind === null)
+			return;
+		if(text.trim() === '')
 			return;
 
 		const len = this.state.bind.messages.length;
@@ -253,6 +274,17 @@ class MessagesPage extends React.Component {
 		}
 	}
 
+	getStatusBind = () => {
+		if(this.state.bind.isGroup){
+			return 'Группа';
+		}else{
+			if(this.state.bind.online)
+				return <b>В сети</b>;
+			else
+				return "Не в сети";
+		}
+	}
+
 	render() {
 		return (
 			<div className="anim up message-page root-block">
@@ -266,7 +298,8 @@ class MessagesPage extends React.Component {
 								<MdSearch size="1.5em"/>
 							</InputText>
 						</div>
-						{this.state.binds?(
+						<div>
+						{this.state.binds && (
 							<ul className="binds">
 								{this.state.binds.map(bind => (
 										<Bind  
@@ -277,29 +310,38 @@ class MessagesPage extends React.Component {
 									 	/>
 								))}
 							</ul>
-						):<div></div>}
+						)}
+						</div>
 					</div>
 					<div className="column" style={{flexGrow: 1, backgroundColor: '#E0E0E0'}}>
 						
 							<div style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
 								{this.state.bind && (
 								<div className="profile-div">
-									<Icon src={this.state.bind.icon} name={this.state.bind.name} size="50"/>
+									<Icon 
+										src={this.state.bind.icon} 
+										name={this.state.bind.name} 
+										className={this.state.bind.isGroup?'group':'user'}
+										size="50"
+									/>
 									<div className="profile-info">
 										<div className="name">{this.state.bind.name}</div>
-										<div className="status">Не в сети</div>
+										<div className="status">
+										{this.getStatusBind()}
+										</div>
 									</div>
 								</div> 
 								)}
 
 								{this.state.bind && (
 								<div className="messages" style={{flexGrow: 2}} ref={this.messagesRef} 
-											onScroll={this.clearScroll}>
+											onScroll={this.onScrollMessage}>
 									<div className="messages-wrapper">
 										<div>
 										{this.state.bind.messages.map((el, index) => <Message 
 											key={el.user.login+el.index} 
-											text={el.text} time={el.timestamp} profile={el.user} 
+											className={(el.user.login === this.props.net.profile.login) && "mine"}
+											message={el}
 											lastMessage={(index > 0)?this.state.bind.messages[index-1]:null}
 											/>)
 										}
@@ -330,24 +372,11 @@ function Bind (props) {
 	let timeString = '';
 	let author = '';
 	let unread = 0;
+	const className = props.bind.isGroup?'group':'user';
 	if(props.bind.messages.length>0){
 		message = props.bind.messages[props.bind.messages.length-1];
 
-		const time = new Date(message.timestamp);
-
-		const nowDate = Date.now();
-		const nowDay = nowDate/(24*60*60*1000)>>0;
- 
-		const day = message.timestamp/(24*60*60*1000)>>0;
-
-		if(nowDay-day === 0){
-			const min = time.getMinutes();
-			timeString = time.getHours() + ':'+(min<10?'0'+min:min);
-		}else if(nowDay-day === 1)
-			timeString = 'вчера'
-		else
-			timeString = time.getDate() + ' ' + StringMonth(time.getMonth())
-
+		timeString = getDate(message.timestamp);
 
 		if(message.user.login !== props.bind.link)
 				if(message.user.login === props.suser)
@@ -357,10 +386,10 @@ function Bind (props) {
 
 		unread = props.bind.messageCount-props.bind.readed
 	}
-
 	return <Link to={props.bind.link} className="clear">
 		<li className={'bind'+(props.active?' active':'')+(unread>0?' unreaded':'')}>
-			<Icon src={props.bind.icon} name={props.bind.name} size="50"/>
+			<BindIcon src={props.bind.icon} name={props.bind.name} size="50" className={className}
+				online={props.bind.online}/>
 			<div className="bind-inner">
 				<div className="content">
 					<div className="profile-name">{props.bind.name}</div>

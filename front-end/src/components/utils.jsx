@@ -1,5 +1,6 @@
 import React from 'react'
 import { dbUrl } from './../constants.jsx'
+import cn from 'classnames'
 
 function Icon(props) {
 	const size = props.size || 40;
@@ -13,18 +14,29 @@ function Icon(props) {
 	}
 
 	if(src){
-		return <img className="icon" src={src} alt={name}
+		return <img className={cn("icon")} src={src} alt={name}
 						style={{width: size+'px', height: size+'px'}}/>
 	}else{
 		const text = name[0];
-		return <div style={{backgroundColor: '#4F0087', width: size+'px', height: size+'px',
-							lineHeight: (size-4)+'px', fontSize: (size/2)+'px'}} 
-								className={"icon-empty icon "+props.className}>{text}</div>
+		return <div style={{
+			width: size+'px', 
+			height: size+'px',		
+			lineHeight: (size-2)+'px', 
+			fontSize: (size/2)+'px'
+		}} className={cn("icon-empty icon", props.className)}>{text}</div>
 	}
+}
+
+function BindIcon(props){
+
+	return <div className="icon-wrapper">
+		<Icon {...props}/>
+		{(props.online===true) && <div className="mini-icon"></div>}
+	</div>
 }
 
 function Title(props){
 	return <div className="title" style={props.pos?props.pos: {display:'none'} }>{props.text}</div>
 }
 
-export { Icon, Title };
+export { Icon, Title, BindIcon };

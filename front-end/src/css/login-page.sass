@@ -48,6 +48,28 @@ $main-color: #FF5C00
 
 .login-form.register-form
 	width: 530px
+	@media(max-width: 530px)
+		width: 100%
+
+.last-button
+	text-align: left
+
+@media(max-width: 530px)
+	.register-form
+
+		.input-text, .form-flex
+			flex-direction: column
+			height: auto
+			align-items: stretch
+
+		input
+			border: none
+			&:not(:last-child)
+				border-bottom: 1px solid #E3E3E3
+		svg
+			display: none
+	.last-button
+		text-align: center
 
 .register-form 
 	.input-text
@@ -120,3 +142,5 @@ $main-color: #FF5C00
 	pointer-events: none
 	background-image: url('./img/sinaps-logo.svg')
 	background-repeat: no-repeat
+	@media(max-width: 800px)
+		display: none
