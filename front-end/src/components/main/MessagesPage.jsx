@@ -1,5 +1,5 @@
 import React from 'react'
-import { InputText } from './../inputs/LoginInputs.jsx'
+import { InputText, RippleA } from './../inputs/LoginInputs.jsx'
 import { MdSearch } from 'react-icons/md'
 import { Icon, BindIcon } from './../utils.jsx';
 import Chat from './../inputs/Chat.jsx'
@@ -7,7 +7,7 @@ import { Message } from './messages.jsx'
 import { Link } from 'react-router-dom'
 import { url } from './../../constants.jsx'
 import easeInOut from 'eases/quad-in-out'
-import { getDate } from './../../tools/rus.js'
+import { getDate, numeral } from './../../tools/rus.js'
 
 function getScroll(m){
 	return m.scrollHeight - m.scrollTop - m.clientHeight;
@@ -23,6 +23,7 @@ class MessagesPage extends React.Component {
 		this.lastScroll = -1;
 		this.messagesRef = React.createRef();
 		this.chatRef = React.createRef();
+		this.bindsRef = React.createRef();
 		this.state = {binds: [], bind: null}
 	}
 
@@ -181,6 +182,7 @@ class MessagesPage extends React.Component {
 					}
 				}).then(resp => resp.json())
 				.then(jresp => {
+					console.log(jresp);
 					if(!jresp.error){
 
 						jresp.messages.push(...bind.messages);
@@ -222,12 +224,14 @@ class MessagesPage extends React.Component {
 			index: (len>0)?this.state.bind.messages[len-1].index+1:0,
 			timestamp:Date.now()});
 
+		this.bindsRef.current.scrollTop = 0;
+
 		fetch(url+'/write-message', {
 				method: 'POST',
 				headers: {
 					token: this.props.net.token,
 					'Content-Type': 'application/json;charset=utf-8',
-		  	},
+				},
 		  	body: JSON.stringify({bind: this.bind, text})
 		}).then(resp => resp.json())
 		.then(jresp => {
@@ -264,6 +268,8 @@ class MessagesPage extends React.Component {
 			}else 
 				bind = Object.assign({}, bind);
 
+			if(message.user.login !== this.props.net.profile.login)
+				bind.online = true;
 			bind.messages.push(message);
 			list.unshift(bind);
 
@@ -276,6 +282,10 @@ class MessagesPage extends React.Component {
 
 	getStatusBind = () => {
 		if(this.state.bind.isGroup){
+			const count = this.state.bind.userCount;
+			if(count)
+				return count+' '+numeral(count, 'участник', 'участника', 'участников');
+			
 			return 'Группа';
 		}else{
 			if(this.state.bind.online)
@@ -298,7 +308,7 @@ class MessagesPage extends React.Component {
 								<MdSearch size="1.5em"/>
 							</InputText>
 						</div>
-						<div>
+						<div className="binds-wrapper" ref={this.bindsRef}>
 						{this.state.binds && (
 							<ul className="binds">
 								{this.state.binds.map(bind => (
@@ -314,50 +324,55 @@ class MessagesPage extends React.Component {
 						</div>
 					</div>
 					<div className="column" style={{flexGrow: 1, backgroundColor: '#E0E0E0'}}>
-						
-							<div style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
-								{this.state.bind && (
-								<div className="profile-div">
-									<Icon 
-										src={this.state.bind.icon} 
-										name={this.state.bind.name} 
-										className={this.state.bind.isGroup?'group':'user'}
-										size="50"
-									/>
-									<div className="profile-info">
-										<div className="name">{this.state.bind.name}</div>
-										<div className="status">
-										{this.getStatusBind()}
-										</div>
-									</div>
-								</div> 
-								)}
-
-								{this.state.bind && (
-								<div className="messages" style={{flexGrow: 2}} ref={this.messagesRef} 
-											onScroll={this.onScrollMessage}>
-									<div className="messages-wrapper">
-										<div>
-										{this.state.bind.messages.map((el, index) => <Message 
-											key={el.user.login+el.index} 
-											className={(el.user.login === this.props.net.profile.login) && "mine"}
-											message={el}
-											lastMessage={(index > 0)?this.state.bind.messages[index-1]:null}
-											/>)
-										}
-										</div>
+					
+							{this.state.bind && (
+							<div className="profile-div">
+								<Icon 
+									src={this.state.bind.icon} 
+									name={this.state.bind.name} 
+									className={this.state.bind.isGroup?'group':'user'}
+									size="50"
+								/>
+								<div className="profile-info">
+									<div className="name">{this.state.bind.name}</div>
+									<div className="status">
+									{this.getStatusBind()}
 									</div>
 								</div>
+								{(this.state.bind.isGroup===true) && (
+									<div className="bar-right-buttons">
+										<RippleA to={'/'+this.state.bind.link+'/c'}>
+											Открыть конференцию
+										</RippleA>
+									</div>
 								)}
+							</div> 
+							)}
 
-								<Chat 
-									className="chat-div" 
-									send={this.sendMessage} 
-									show={(this.state.bind !== null)}
-									ref={this.chatRef}
-								/>
+							{this.state.bind && (
+							<div className="messages" style={{flexGrow: 2}} ref={this.messagesRef} 
+										onScroll={this.onScrollMessage}>
+								<div className="messages-wrapper">
+									<div>
+									{this.state.bind.messages.map((el, index) => <Message 
+										key={el.user.login+el.index} 
+										className={(el.user.login === this.props.net.profile.login) && "mine"}
+										message={el}
+										lastMessage={(index > 0)?this.state.bind.messages[index-1]:null}
+										/>)
+									}
+									</div>
+								</div>
 							</div>
-					</div>
+							)}
+
+							<Chat 
+								className="chat-div" 
+								send={this.sendMessage} 
+								show={(this.state.bind !== null)}
+								ref={this.chatRef}
+							/>
+						</div>
 				</main>
 			</div>
 		);
@@ -386,7 +401,7 @@ function Bind (props) {
 
 		unread = props.bind.messageCount-props.bind.readed
 	}
-	return <Link to={props.bind.link} className="clear">
+	return <Link to={'/'+props.bind.link} className="clear">
 		<li className={'bind'+(props.active?' active':'')+(unread>0?' unreaded':'')}>
 			<BindIcon src={props.bind.icon} name={props.bind.name} size="50" className={className}
 				online={props.bind.online}/>

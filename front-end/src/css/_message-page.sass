@@ -16,6 +16,7 @@ $bar-height: 65px
 			border-top: 1px solid #E4E4E4
 			border-right: 1px solid #E4E4E4
 			overflow: hidden
+			position: relative
 
 .search-div, .profile-div
 	height: $bar-height
@@ -41,6 +42,7 @@ $bar-height: 65px
 .profile-div
 	display: flex
 	align-items: center
+
 	background-color: white
 	box-shadow: 0 15px 15px -15px rgba(0, 0, 0, 0.1)
 	z-index: 2
@@ -57,6 +59,11 @@ $bar-height: 65px
 
 		.status
 			color: #A7A7A7
+
+.bar-right-buttons
+	flex-grow: 1
+	text-align: right
+	padding-right: 10px
 
 .chat-div
 	border-top: 1px solid #E4E4E4
@@ -145,6 +152,14 @@ $bar-height: 65px
 	color: #FF5C00
 	text-align: right
 	font-weight: 600
+
+.column
+	display: flex
+	flex-direction: column
+
+.binds-wrapper
+	overflow-y: auto
+	position: relative
 
 .binds
 	 list-style-type: none

@@ -6,6 +6,7 @@ import { IoIosArrowBack } from 'react-icons/io'
 import { FaKey } from 'react-icons/fa'
 import { RiAccountCircleLine } from 'react-icons/ri'
 import { url } from './../../constants.jsx'
+import { AlertWrapper } from './../inputs/Alert.jsx'
 
 class LoginPage extends React.Component {
 
@@ -16,6 +17,8 @@ class LoginPage extends React.Component {
 		this.info = {mail: '', name: '', surname: '', pass: '', repeatPass: ''};
 
 		this.state = {errors: {mail: null, name: null, pass: null}};
+
+		this.alertRef = React.createRef();
 	}
 
 	register = (e) => {
@@ -41,8 +44,12 @@ class LoginPage extends React.Component {
 		if(this.info.repeatPass !== this.info.pass)
 			errors.pass = 'Пароли не совпадают';
 
+		if(this.info.pass.length < 3)
+			errors.pass = 'Дляна пароля должна быть от 3 символов';
+
 		if(this.info.pass === '')
 			errors.pass = 'Поля "Пароль" должно быть заполнено';
+
 
 		this.setState({errors});
 
@@ -68,7 +75,10 @@ class LoginPage extends React.Component {
 				return;
 			}
 
-			console.log(res);
+			if(res.success){
+				console.log('success');
+				this.alertRef.current.alert('Аккаунт успешно создан. Вернитесь назад, чтобы войти');
+			}
 
 		});
 
@@ -92,10 +102,14 @@ class LoginPage extends React.Component {
 	render() {
 		return (
 			<div className="login-page anim down" style={{maxWidth: '900px', minHeight: '90vh'}}>
-				
+				<AlertWrapper delay={3000} ref={this.alertRef}>
 				<div className="login-label" style={{marginLeft: '0', height: '330px'}}>
 					<Link className="toBack" to="/"><IoIosArrowBack size="1.8em"/>Вход в аккаунт</Link>
-					<p>Уже 85 человек получили доступ к видеолекциям. <span className="orange">Присоединяйтесь и вы.</span></p>
+					<p>Уже 85 человек получили доступ к видеолекциям.{' '}
+						<span className="orange">
+							Присоединяйтесь и вы.
+						</span>
+					</p>
 				</div>
 
 				<div className="login-column">
@@ -106,7 +120,9 @@ class LoginPage extends React.Component {
 										onChange={this.onChange}>
 								<MdMailOutline size="1.6em"/>
 							</InputText>
-							<InputCheckbox style={{margin: '12px 22px'}} onChange={(str) => this.remember = str}>Получать уведомления</InputCheckbox>
+							<InputCheckbox style={{margin: '12px 22px'}} onChange={(str) => this.remember = str}>
+								Получать уведомления
+							</InputCheckbox>
 						</div>
 						<InputText 	fields={{name: 'Имя', surname: 'Фамилия'}} type="text"
 											onChange={this.onChange} error={this.state.errors.name}>
@@ -121,6 +137,7 @@ class LoginPage extends React.Component {
 						</div>
 					</form>
 				</div>
+				</AlertWrapper>
 			</div>
 		);
 	}

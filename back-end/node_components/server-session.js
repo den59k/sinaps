@@ -4,7 +4,7 @@ const createAuthSystem = require('./auth-system.js')
 const createProfileSettings = require('./profile-settings.js')
 const createGroupSystem = require('./groups-system.js')
 const createMessageSystem = require('./messages-system.js')
-
+const createRoomSystem = require('./room-system.js')
 
 //const mongoUrl = 'mongodb://admin:admin@localhost:27017/?authSource=sinaps-db';
 const mongoUrl = 'mongodb://localhost:27017';
@@ -39,6 +39,7 @@ class ServerSession{
 		createProfileSettings(this);
 		createGroupSystem(this);
 		createMessageSystem(this);
+		createRoomSystem(this);
 
 		this.wss.on('connection', ws => {
 			const timeoutDrop = setTimeout(() => {
@@ -62,7 +63,7 @@ class ServerSession{
 					ws.once('close', () => {
 						const suser = this.tokens.get(token);
 						suser.sockets.delete(token);
-
+						this.emitter.emit('close', {token}, this.tokens.get(token), ws);
 						//Удаляем токен после бездействия - он нам как-бы и не нужен
 						setTimeout(() => {
 							if(this.tokens.has(token)){

@@ -203,6 +203,7 @@ function createMessageSystem(session){
 					{ projection: {_id: 0, name: 1, icon: 1} });
 				bindResponse.name = group.name;
 				bindResponse.icon = group.icon;
+				bindResponse.userCount = binding.userCount;
 			}else{
 				//Вытащим id из bindQuery, чтобы найти юзера по ид
 				const _id = bindQuery.users[0].equals(suser._id)?bindQuery.users[1]:bindQuery.users[0]
