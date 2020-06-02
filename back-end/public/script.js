@@ -13,7 +13,7 @@ async function start(){
 	    namedCurve: 'P-256'
 	});
 
-	const stream = await navigator.mediaDevices.getUserMedia({video: {height: 400 }, audio: true});
+	const stream = await navigator.mediaDevices.getUserMedia({video: {height: 200 }, audio: true});
 
 	console.log(stream);
 	console.log(stream.getTracks());

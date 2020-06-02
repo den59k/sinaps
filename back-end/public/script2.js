@@ -21,10 +21,13 @@ async function createConnection(offer, ice){
 	const pc = new RTCPeerConnection({certificates: [cert]});
 
 
-	const pc2 = new RTCPeerConnection({certificates: [cert]});
+	const pc2 = new RTCPeerConnection({certificates: [cert], iceCandidatePoolSize: 4});
 	//stream.getTracks().forEach(track => pc2.addTrack(track, stream));
 
-	const myoffer = await pc2.createOffer();
+	const myoffer = await pc2.createOffer({
+		offerToReceiveAudio: true, 
+		offerToReceiveVideo : true,
+	});
 
 	stream.getTracks().forEach(track => pc.addTrack(track, stream));
 

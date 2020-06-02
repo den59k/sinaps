@@ -1,12 +1,21 @@
+const _sdp = require('../stun/my-sdp.js');
+const fs = require('fs')
+const Room = require('./webrtc/Room.js');
+
 const delay = (delay) => new Promise((res, rej) => {
 	setTimeout(res, delay);
 });
 
 function createRoomSystem(session){
 
+	const sdp = new _sdp(fs.readFileSync('./certs/cert.der'));
+
 	const { app, tokens, usersDB, groupsDB, bindsDB, emitter } = session;
 	const rooms = new Map();
 
+	let currentPort = 4000;
+
+	//Отправляется при подключении к комнате
 	app.post('/join-room/:room', async(req, res) => {
 		try{
 			if(!req.params.room)
@@ -48,19 +57,12 @@ function createRoomSystem(session){
 				throw('not-allowed');
 
 			if(!rooms.has(link)){
-				room.users = new Map();
-				room.sockets = new Map();
+				room = new Room(room, session, currentPort, sdp);
+				currentPort++;
 				rooms.set(link, room);
 			}
 
-			room.sockets.set(req.headers.token, suser.sockets.get(req.headers.token));
-			suser.sockets.get(req.headers.token).room = room;
-
-			const idstr = suser._id.toHexString();
-			if(!room.users.has(idstr)){
-				room.users.set(idstr, suser);
-				console.log(suser.profile.login + ' присоединился к комнате ' +room.link);
-			}
+			room.addUserSocket(req.headers.token, suser);
 
 			const messages = bind.messages;
 			for(let el of messages){
@@ -69,7 +71,19 @@ function createRoomSystem(session){
 				el.user.online = room.users.has(idstr);
 			}
 
-			res.send({link: room.link, userCount: room.users.size, name: room.name, messages});
+			res.send({
+				room: { 
+					link: room.link, 
+					userCount: room.users.size, 
+					name: room.name 
+				}, 
+				messages,
+				default: {
+					offer: { type: 'offer', sdp: sdp.sdp},
+					ice: room.getIce(sdp.ufrag)
+				},
+				senders: room.getSenders()
+			});
 
 		}catch(e){
 			e.url = req.url;
@@ -78,22 +92,20 @@ function createRoomSystem(session){
 		}
 	});
 
-	const existOnRoom = (user, room) => {
-		for(let token of user.sockets.keys())
-			if(room.sockets.has(token))
-				return true;
+	emitter.on('create-connection', (m, user, ws) => {
+		if(!ws.room) return;
 
-		return false;
-	}
+		ws.room.createConnection(m, user, ws);
+	});
+
+	emitter.on('create-receive', (m, user, ws) => {
+		if(!ws.room) return;
+
+		ws.room.createReceive(m, user, ws);
+	});
 
 	const leaveUser = (token, suser, room) => {
-
-		room.sockets.delete(token);
-		if(!existOnRoom(tokens.get(token), room)){
-			const idstr = suser._id.toHexString();
-			room.users.delete(idstr);
-			console.log(suser.profile.login + ' вышел из комнаты ' +room.link);
-		}
+		room.deleteUserSocket(token, suser);
 	}
 
 	emitter.on('leave-room', (m, user, ws) => {
@@ -107,7 +119,6 @@ function createRoomSystem(session){
 		leaveUser(m.token, user, ws.room);
 		delete ws.room;
 	});
-
 }
 
 module.exports = createRoomSystem;

@@ -28,8 +28,8 @@ function Icon(props) {
 }
 
 function BindIcon(props){
-
-	return <div className="icon-wrapper">
+	const size = props.size || 40;
+	return <div className="icon-wrapper" style={{height: size+'px'}}>
 		<Icon {...props}/>
 		{(props.online===true) && <div className="mini-icon"></div>}
 	</div>

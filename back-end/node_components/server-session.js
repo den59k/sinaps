@@ -11,10 +11,12 @@ const mongoUrl = 'mongodb://localhost:27017';
 
 
 class ServerSession{
-	constructor(app, wss){
+	constructor(app, wss, ip, publicIP){
 
 		this.app = app;
 		this.wss = wss;
+		this.ip = ip;
+		this.publicIP = publicIP;
 		this.init();
 
 		this.tokens = new Map();

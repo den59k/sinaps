@@ -3,15 +3,10 @@ import { InputText, RippleA } from './../inputs/LoginInputs.jsx'
 import { MdSearch } from 'react-icons/md'
 import { Icon, BindIcon } from './../utils.jsx';
 import Chat from './../inputs/Chat.jsx'
-import { Message } from './messages.jsx'
+import { MessageBlock } from './messages.jsx'
 import { Link } from 'react-router-dom'
 import { url } from './../../constants.jsx'
-import easeInOut from 'eases/quad-in-out'
 import { getDate, numeral } from './../../tools/rus.js'
-
-function getScroll(m){
-	return m.scrollHeight - m.scrollTop - m.clientHeight;
-}
 
 class MessagesPage extends React.Component {
 
@@ -20,10 +15,9 @@ class MessagesPage extends React.Component {
 
 		this.binds = [];
 		this.bind = null;
-		this.lastScroll = -1;
-		this.messagesRef = React.createRef();
 		this.chatRef = React.createRef();
 		this.bindsRef = React.createRef();
+		this.messagesRef = React.createRef();
 		this.state = {binds: [], bind: null}
 	}
 
@@ -44,69 +38,8 @@ class MessagesPage extends React.Component {
 		}
 
 		
-		if(prevState.bind !== this.state.bind){
-			const el = this.messagesRef.current;
-			el.scrollTop = el.scrollHeight;
-			setTimeout(() => this.loadingBind = false, 0);
+		if(prevState.bind !== this.state.bind)
 			this.chatRef.current.focus();
-		}
-
-
-		if(this.lastScroll >= 0){
-			if(this.lastScroll < 20){
-				this.scrollFlag = -1;
-				requestAnimationFrame(this.scrollDown);
-			}
-
-			this.lastScroll = -1;
-		}
-	}
-
-	scrollFlag = -1;
-	scrollDown = () => {
-		this.scrollFlag = this.messagesRef.current.scrollTop;
-		const startTime = performance.now();
-		const startScroll = this.messagesRef.current.scrollTop;
-		const endScroll = this.messagesRef.current.scrollHeight-this.messagesRef.current.clientHeight;
-
-		const anim = time => {
-			if(this.scrollFlag !== this.messagesRef.current.scrollTop)
-				return;
-			let timeFraction = Math.min((time - startTime) / 140, 1);
-
-			timeFraction = easeInOut(timeFraction);
-
-			this.messagesRef.current.scrollTop = (startScroll+(endScroll-startScroll)*timeFraction)>>0;
-			this.scrollFlag = this.messagesRef.current.scrollTop;
-			if(timeFraction < 1)
-				requestAnimationFrame(anim);
-		};
-
-		anim(startTime);
-
-	}
-
-	fetchingFlag = false
-	onScrollMessage = (e) => {
-		const bind = this.state.bind;
-		if(	bind && 
-				this.messagesRef.current.scrollTop < 500 &&
-				bind.messages[0].index > 0 && !this.fetchingFlag && !this.loadingBind){
-				this.fetchingFlag = true;
-				setTimeout(() => this.fetchingFlag = false, 1000);
-				fetch(url+'/get-bind/'+bind.link+'?limit=100&last='+bind.messages[0].index, {
-					method: 'GET',
-					headers: { token: this.props.net.token }
-				}).then(resp => resp.json())
-				.then(jresp => {
-					if(jresp.error){
-						console.log(jresp.error);
-						return;
-					}
-					bind.messages = jresp.messages.concat(bind.messages);
-					this.setState({bind});
-				});
-			}
 	}
 
 	componentDidMount(){
@@ -151,6 +84,8 @@ class MessagesPage extends React.Component {
 		this.bind = str;
 		let bind = null;
 		let bindIndex = -1;
+
+		//Так, здесь мы назначаем активную переписку
 		for(let i = 0; i < this.state.binds.length; i++){
 			bind = this.state.binds[i];
 			if(bind.link === str){
@@ -159,7 +94,8 @@ class MessagesPage extends React.Component {
 				break;
 			}
 		}
-		this.loadingBind = true;
+
+		//Затем, если мы ее не нашли - добавляем
 		if(bindIndex < 0){
 			fetch(url+'/get-bind/'+str+'?limit=50', {
 				method: 'GET',
@@ -182,18 +118,16 @@ class MessagesPage extends React.Component {
 					}
 				}).then(resp => resp.json())
 				.then(jresp => {
-					console.log(jresp);
 					if(!jresp.error){
-
+						this.messagesRef.current.updateMessages();
 						jresp.messages.push(...bind.messages);
-
 						const list = [...this.state.binds];
 						list[bindIndex] = jresp;
 						this.setState({binds: list, bind: jresp});
 					}
 				});
 			}else{
-				//А иначе 0 прочитать последние сообщения с места
+				//А иначе прочитать последние сообщения с места
 				if(bind.messages[bind.messages.length-1].user.login !== this.props.net.profile.login){
 					bind.readed = bind.messages[bind.messages.length-1].index+1
 					this.forceUpdate(() => {
@@ -254,7 +188,7 @@ class MessagesPage extends React.Component {
 			bind.messageCount++;
 			if(this.state.bind === bind){
 
-				this.lastScroll = getScroll(this.messagesRef.current);
+				this.messagesRef.current.updateScroll();
 
 				//Здесь мы отправим сообщение, что сообщения прочитаны
 				bind.readed++;
@@ -293,6 +227,22 @@ class MessagesPage extends React.Component {
 			else
 				return "Не в сети";
 		}
+	}
+
+	scrollMessage = (e) => {
+		const bind = this.state.bind;
+		fetch(url+'/get-bind/'+bind.link+'?limit=100&last='+bind.messages[0].index, {
+			method: 'GET',
+			headers: { token: this.props.net.token }
+		}).then(resp => resp.json())
+		.then(jresp => {
+			if(jresp.error){
+				console.log(jresp.error);
+				return;
+			}
+			bind.messages = jresp.messages.concat(bind.messages);
+			this.setState({bind});
+		});
 	}
 
 	render() {
@@ -349,22 +299,13 @@ class MessagesPage extends React.Component {
 							</div> 
 							)}
 
-							{this.state.bind && (
-							<div className="messages" style={{flexGrow: 2}} ref={this.messagesRef} 
-										onScroll={this.onScrollMessage}>
-								<div className="messages-wrapper">
-									<div>
-									{this.state.bind.messages.map((el, index) => <Message 
-										key={el.user.login+el.index} 
-										className={(el.user.login === this.props.net.profile.login) && "mine"}
-										message={el}
-										lastMessage={(index > 0)?this.state.bind.messages[index-1]:null}
-										/>)
-									}
-									</div>
-								</div>
-							</div>
-							)}
+							{this.state.bind && <MessageBlock 
+								net={this.props.net}
+								messages={this.state.bind.messages}
+								bind={this.state.bind.link}
+								scrollMessage={this.scrollMessage}
+								ref={this.messagesRef}
+								/>}
 
 							<Chat 
 								className="chat-div" 

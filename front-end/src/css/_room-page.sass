@@ -1,10 +1,24 @@
 .room-header-title
 	flex-grow: 2
+	display: flex
+	align-items: baseline
+	padding-right: 20px
 	h1
 		display: inline-block
 		vertical-align: baseline
 	.my-button
 		vertical-align: middle
+
+	.room-time
+		flex-grow: 1
+		text-align: right
+		color: #777777
+
+	.user-count
+		padding: 0 10px
+		margin-left: 10px
+		height: 30px
+		line-height: 30px
 
 .room-main-content
 	height: 100vh
@@ -13,6 +27,47 @@
 .main-column
 	flex-grow: 1
 
-.chat-column
-	flex-basis: 300px
-	background-color: #F2F2F2
+.micro-block
+	padding: 5px 20px
+
+.telling-column
+	display: flex
+	flex-direction: column
+	flex-basis: 378px
+	background-color: #E5E5E5
+	border-left: 1px solid #D1D1D1
+
+	.webcam-block
+		flex-basis: 200px
+		background-color: #FFFFFF
+		flex-shrink: 0
+		box-shadow: 0 15px 15px -15px rgba(0, 0, 0, 0.1)
+		z-index: 5
+		display: flex
+		justify-content: center
+		align-items: center
+
+	.messages-block
+		flex-grow: 1
+		overflow-y: auto
+
+body
+	.my-button.add-micro-button
+		color: #C2C2C2
+		height: 60px
+		width: 60px
+		padding: 0
+		border: 2px solid #C2C2C2
+		border-radius: 50%
+		position: relative
+
+	.my-button.add:before
+		content: ''
+		position: absolute
+		background: url("./img/plus.svg")
+		background-size: 20px
+		width: 20px
+		height: 20px
+		top: 50%
+		left: 50%
+		margin-top: -10px

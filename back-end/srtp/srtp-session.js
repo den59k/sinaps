@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const decodeRTCP = require('./rtcp-decode.js');
 const { readBit, readBits } = require('./utils');
+const { payloadTypes } = require('./constants.js');
+const { encode, createEncode, types: { uint8, string } } = require('binary-data');
 
 function XOR(a, b, offsetB){
 	var length = Math.max(a.length, b.length+offsetB)
@@ -19,6 +21,7 @@ class SRTPsession{
 
 	constructor(keys){
 		this.ROC = 0;
+		this.lastSequence = 0;
 
 		this.clientMasterKey = keys.clientMasterKey;
 		this.serverMasterKey = keys.serverMasterKey;
@@ -34,6 +37,10 @@ class SRTPsession{
 		this.rRTCP = {};	//receiver RTCP keys
 		this.sRTP = {};		//sender RTP keys
 		this.sRTCP = {}; 	//sender RTCP keys
+
+		this.senderPackets = 0;
+		this.senderSize = 0;
+		this.RTCPindex = 1;
 
 		const iv = Buffer.alloc(16, 0);
 		for(let i = 0; i < 2; i++){
@@ -80,10 +87,146 @@ class SRTPsession{
 		return Buffer.concat([a, b]);
 	}
 
+	encodeRTCP(arr){
+		console.log("ПЫТАЮСЬ ЗАКОДИРОВАТЬ: ");
+		console.log(arr);
+		const bufs = arr.map(this.packetEncode);
+
+		const data = Buffer.concat(bufs);
+
+		const SSRC = data.readUInt32BE(4);
+		const decryptedData = data.slice(8);
+
+		const buffer = Buffer.alloc(10, 0);
+		buffer.writeUInt32BE(SSRC, 0);
+		buffer.writeUInt32BE(this.RTCPindex, 6);
+
+		const IV = Buffer.alloc(16, 0);
+		XOR(this.sRTCP.k_s, buffer, 4).copy(IV);
+
+		const cipher = crypto.createCipheriv('aes-128-ctr', this.sRTCP.k_e, IV);
+		const headerPart = cipher.update(decryptedData);
+		const finalPart = cipher.final();
+
+		const indexBuffer = Buffer.alloc(4);
+		indexBuffer.writeUInt32BE(this.RTCPindex);
+		indexBuffer.writeUInt8(1<<7);
+
+		const authData = Buffer.concat([data.slice(0, 8), headerPart, finalPart, indexBuffer]);
+
+		//Вычисляем auth подпись сообщения
+		const hmac = crypto.createHmac('sha1', this.sRTCP.k_a);
+		hmac.update(authData);
+		const authTag = hmac.digest();
+
+		this.RTCPindex++;
+
+		return Buffer.concat([authData, authTag.slice(0, 10)]);
+	}
+
+	packetEncode = (packet) => {
+		const buf = Buffer.alloc((packet.length+1)*4);
+		const firstByte = (2<<6)+packet.reportCount;
+		buf.writeUInt8(firstByte, 0);
+		buf.writeUInt8(packet.type, 1);
+		buf.writeUInt16BE(packet.length, 2);
+		buf.writeUInt32BE(packet.SSRC, 4);
+
+		if(packet.length === 1)
+			return buf;
+
+		switch(packet.type){
+			case payloadTypes.SR:
+				packet.NTP.copy(buf, 8);
+				buf.writeUInt32BE(packet.timestamp, 16);
+				buf.writeUInt32BE(this.senderPackets, 20);
+				buf.writeUInt32BE(this.senderSize, 24);
+				console.log("SENDER PACKETS: "+this.senderPackets);
+				console.log("SENDER SIZE: "+this.senderSize);
+			break;
+
+			case payloadTypes.SDES:
+				const startPos = 8;
+				for(let item of packet.items){
+					buf.writeUInt8(item.cname, startPos);
+					if(item.cname < 8){
+						buf.writeUInt8(item.name.length, startPos+1);
+						buf.write(item.name, startPos+2);
+					}
+				}
+			break;
+
+			case payloadTypes.RR:
+				buf.writeUInt32BE(packet.SSRC1, 8);
+				buf.writeUInt32BE(0, 12);
+				buf.writeUInt32BE(packet.highestSequence, 16);
+				buf.writeUInt32BE(packet.jitter, 20);
+			break;
+
+			default:
+				packet.buffer.copy(buf, 8);
+
+		}
+		return buf;
+	}
+
+	encodeRTP(data){
+		//https://tools.ietf.org/html/rfc3550#section-5
+		//Первый байт 
+		const header = Buffer.alloc(12);
+		let type = 2 << 6;
+		//type = type+data.CSRC.length;
+		header.writeUInt8(type);
+
+		//Второй байт
+		let payloadType = (data.marker << 7) + data.payloadType;
+		header.writeUInt8(payloadType, 1);
+
+		header.writeUInt16BE(data.sequenceNumber, 2);
+
+		header.writeUInt32BE(data.timestamp, 4);
+
+		header.writeUInt32BE(data.SSRC, 8);
+
+		const buffer = Buffer.alloc(10, 0);
+		buffer.writeUInt32BE(data.SSRC, 0);
+		buffer.writeUInt32BE(data.ROC, 4);
+		buffer.writeUInt16BE(data.sequenceNumber, 8);
+
+		//console.log("buffer: ", buffer.toString('hex'));
+
+		const IV = Buffer.alloc(16, 0);
+		XOR(this.sRTP.k_s, buffer, 4).copy(IV);
+
+		const cipher = crypto.createCipheriv('aes-128-ctr', this.sRTP.k_e, IV);
+		let encryptedData = cipher.update(data.data);
+		let finalPart = cipher.final();
+		this.senderSize+=(data.data.length+10);
+		
+		const finalData = Buffer.concat([header, encryptedData, finalPart]);
+
+		//Вычисляем auth подпись сообщения
+		const ROCbuffer = Buffer.alloc(4, 0);
+		ROCbuffer.writeUInt32BE(data.ROC);
+
+		//console.log(authData.length);
+		//console.log("k_a:", this.sRTP.k_a);
+		const hmac = crypto.createHmac('sha1', this.sRTP.k_a);
+
+		hmac.update(finalData);
+		hmac.update(ROCbuffer);
+
+		const authTag = hmac.digest();
+		this.senderPackets++;
+	
+		return Buffer.concat([finalData, authTag.slice(0, 10)]);
+	}
+
 	decode(udpMessage){
 		let type = udpMessage.readUInt8(0);
 		let payload = udpMessage.readUInt8(1);
 
+		//Это RTP пакет или RTCP
 		if(payload !== 200 && payload !== 201 && payload !== 202){
 
 			let sequence = udpMessage.readUInt16BE(2);
@@ -93,26 +236,50 @@ class SRTPsession{
 			let CSRCcount = readBits(type, [4, 5, 6, 7]);
 			let extensionFlag = readBit(type, 3);
 
-			console.log("Это RTP сообщение");
 
-			console.log("version: ", readBits(type, [0, 1]));
-			console.log("padding: ",readBit(type, 2));
-			console.log("extension: ", extensionFlag);
-			console.log("CSRC count: ", CSRCcount);
+			
+			if(sequence > this.lastSequence && Math.abs(this.lastSequence-sequence) < 1000)
+				this.lastSequence = sequence;	
 
-			console.log("Marker: ", readBit(payload, 0));
-			console.log('Payload-type: ', payload & ~(1 << 7));
+			//Если у нас такая фигня - увеличим ROC
+			if(this.lastSequence-sequence > 64000)
+				this.ROC++;
+				this.lastSequence = sequence;
 
-			console.log('sequence-number: ', sequence);
+			//console.log("Это RTP сообщение");
 
-			console.log('time-stamp: ', timestamp);
+			//console.log("version: ", readBits(type, [0, 1]));
+			//console.log("padding: ",readBit(type, 2));
+			//console.log("extension: ", extensionFlag);
+			//console.log("CSRC count: ", CSRCcount);
 
-			console.log('SSRC: ', SSRC);
+			//console.log("Marker: ", readBit(payload, 0));
+			//console.log('Payload-type: ', payload & ~(1 << 7));
+
+			//console.log('sequence-number: ', sequence);
+
+			//console.log('time-stamp: ', timestamp);
+
+			//console.log('SSRC: ', SSRC);
+
+			const message = {
+				RTP: true,
+				version: readBits(type, [0, 1]),
+				padding: readBit(type, 2),
+				extension: extensionFlag,
+				marker: readBit(payload, 0),
+				payloadType: payload & ~(1 << 7),
+				sequenceNumber: sequence,
+				timestamp,
+				SSRC,
+				CSRC: [],
+				ROC: this.ROC
+			};
 
 			let pos = 12;
 			for(let i = 0; i < CSRCcount; i++){
-				CSRC = udpMessage.readUInt32BE(pos);
-				console.log('CSRC: ', CSRC);
+				message.CSRC.push(udpMessage.readUInt32BE(pos));
+				//console.log('CSRC: ', CSRC);
 				pos += 4;
 			}
 
@@ -132,8 +299,8 @@ class SRTPsession{
 			const ROCbuffer = Buffer.alloc(4, 0);
 			ROCbuffer.writeUInt32BE(this.ROC);
 
-			console.log(authData.length);
-			console.log("k_a:", this.rRTP.k_a);
+			//console.log(authData.length);
+			//console.log("k_a:", this.rRTP.k_a);
 			const hmac = crypto.createHmac('sha1', this.rRTP.k_a);
 
 			hmac.update(authData);
@@ -143,8 +310,8 @@ class SRTPsession{
 			const valid = (udpMessage.slice(udpMessage.length-10).compare(authTag, 0, 10) === 0);
 
 
-			console.log("ROC: ", ROCbuffer);
-			console.log("VALID: ", valid);
+			//console.log("ROC: ", ROCbuffer);
+			//console.log("VALID: ", valid);
 
 
 			const encryptedData = udpMessage.slice(pos, udpMessage.length-10);
@@ -155,7 +322,7 @@ class SRTPsession{
 			buffer.writeUInt32BE(this.ROC, 4);
 			buffer.writeUInt16BE(sequence, 8);
 
-			console.log("buffer: ", buffer.toString('hex'));
+			//console.log("buffer: ", buffer.toString('hex'));
 
 			const IV = Buffer.alloc(16, 0);
 			XOR(this.rRTP.k_s, buffer, 4).copy(IV);
@@ -164,9 +331,9 @@ class SRTPsession{
 			const headerPart = decipher.update(encryptedData);
 			const finalPart = decipher.final();
 
-			const data = Buffer.concat([headerPart, finalPart]);
+			message.data = Buffer.concat([headerPart, finalPart]);
 
-			return data;
+			return message;
 
 		}else{
 			console.log("Это RTCP сообщение");
@@ -178,7 +345,7 @@ class SRTPsession{
 			const authTag = hmac.digest();
 			const valid = (udpMessage.slice(udpMessage.length-10).compare(authTag, 0, 10) === 0);
 
-			console.log("VALID: ", valid);
+			//console.log("VALID: ", valid);
 
 
 
@@ -196,7 +363,7 @@ class SRTPsession{
 			buffer.writeUInt32BE(SSRC, 0);
 			buffer.writeUInt32BE(index, 6);
 
-			console.log("buffer: ", buffer.toString('hex'));
+			//console.log("buffer: ", buffer.toString('hex'));
 
 			const IV = Buffer.alloc(16, 0);
 			XOR(this.rRTCP.k_s, buffer, 4).copy(IV);
@@ -225,7 +392,9 @@ class SRTPsession{
 			console.log('Length: ', _length);
 			console.log('SSRC: ', _SSRC);*/
 
-			return Buffer.allocUnsafe(0);
+			
+
+			return arr;
 
 
 		}

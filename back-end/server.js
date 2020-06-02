@@ -177,7 +177,6 @@ wss.on('connection', function connection(ws) {
 			console.log(__sdp.parse(message.answer.sdp));
 
 			console.log(sss);
-			
 		}
 	});
 

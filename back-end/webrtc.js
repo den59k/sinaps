@@ -35,7 +35,7 @@ let send = false;
 setTimeout(() => {
 	send = true;
 },2000);
-
+let delay = 0;
 udpSocket.on('message', function(udpMessage, rinfo) {
 	const key = rinfo.address+':'+rinfo.port;
 	if(!ipsMap.has(key)){
@@ -57,6 +57,11 @@ udpSocket.on('message', function(udpMessage, rinfo) {
 					console.log("DO NOT SEND");
 				}
 				console.log(stunMessage);
+			}
+
+			if(send){
+				console.log("DO NOT SEND");
+				return;
 			}
 		}else{
 
@@ -88,8 +93,7 @@ udpSocket.on('message', function(udpMessage, rinfo) {
 
 		let CSRCcount = readBits(type, [4, 5, 6, 7]);
 		let extensionFlag = readBit(type, 3);
-		if(!send)
-			return;
+		console.log(payload);
 
 		if(payload !== 200 && payload !== 201){
 			console.log("Это RTP сообщение");

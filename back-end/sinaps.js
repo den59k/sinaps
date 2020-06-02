@@ -7,7 +7,8 @@ const serve = require('serve-static')
 const bodyParser = require('body-parser')
 const cors = require('cors')
 
-const ip = 'localhost'
+const ip = '192.168.1.101'
+const publicIP = '192.168.1.101'
 const port = 80
 const isHTTPS = false;
 
@@ -43,7 +44,7 @@ const wss = new WebSocket.Server( { server } );
 
 //session отвечает за авторизацию и хранение токенов и за все-все-все
 const _session = require('./node_components/server-session.js');
-const session = new _session(app, wss);
+const session = new _session(app, wss, ip, publicIP);
 
 app.use(serve(__dirname + '/public'));
 
