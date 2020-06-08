@@ -11,6 +11,7 @@ class RoomReceiver extends EventEmitter{
 		super();
 		this.ufrag = sdp.media[0].iceUfrag;
 		this.pwd = sdp.media[0].icePwd;
+
 		//this.sha256 = sdp.fingerprint.hash;
 		this.token = token
 		this.login = room.session.tokens.get(token).profile.login;
@@ -29,7 +30,7 @@ class RoomReceiver extends EventEmitter{
 	addEndpoint(rinfo){
 		this.address = rinfo.address;
 		this.port = rinfo.port;
-
+		this.key = this.address+":"+this.port;
 		this.servion = new DTLSServion((b) => this.room.udpSocket.send(b, this.port, this.address));
 	}
 
@@ -42,23 +43,22 @@ class RoomReceiver extends EventEmitter{
 			return;
 		}
 
-		console.log("Быстрый вывод: ");
 		for(let layer of arr){
-			console.log(layer);
 
 			if(layer.encoded){
 				let _decrypted = this.servion.decrypt(layer.record);
 				if(layer.type === 'HANDSHAKE'){
 					let decrypted = decodeHandshake(_decrypted);
-					console.log(decrypted);
 
-					this.servion.addMessageCheckQueue(_decrypted);
+					if(!this.servion.addMessageCheckQueue(_decrypted))
+						return false;
 
-					 if(decrypted.type === 'FINISHED'){
+					if(decrypted.type === 'FINISHED'){
 						this.servion.sendFinish();
 						if(!this.receive){
 							this.emit('start-receive', (this));
 							this.sender.on('data', this.receiveSRTP);
+							this.sender.once('close', this.close);
 							this.receive = true;
 						}
 					}
@@ -68,7 +68,8 @@ class RoomReceiver extends EventEmitter{
 
 				//console.log("MY HASH: ", servion.getHashHandshakeMessages('client finished'));
 			}else if(layer.type === 'HANDSHAKE'){
-				this.servion.addMessageCheckQueue(layer.record.fragment);
+				if(!this.servion.addMessageCheckQueue(layer.record.fragment))
+					return false;
 
 				if(layer.fragment && layer.fragment.body){
 					const body = layer.fragment.body;
@@ -94,14 +95,15 @@ class RoomReceiver extends EventEmitter{
 	}
 
 	receiveSRTP = (message) => {
+		this.servion.successSession();
 		let data;
 		if(message.RTP === true){
 			data = this.SRTP.encodeRTP(message);	
 			this.room.udpSocket.send(data, this.port, this.address);
 			console.log("SENDED TO " + this.address + ':'+this.port);
 		}else{
+			return;
 			data = this.SRTP.encodeRTCP(message);
-			console.log(data);
 			this.room.udpSocket.send(data, this.port, this.address);
 			console.log("SENDED TO " + this.address + ':'+this.port);
 		}
@@ -112,11 +114,21 @@ class RoomReceiver extends EventEmitter{
 
 		const data = this.SRTP.decode(udpMessage);
 
-		if(data.RTP !== true)
-			for(let packet of data)
-				packet.SSRC = this.room.sdp.ssrcVideo;
-			
-		this.sender.feedbackRTCP(data);
+		if(data.RTP !== true){
+			let type = -1;
+			for(let packet of data){
+				if(packet.type === 205 || packet.type === 206)
+					type = packet.type-205;
+/*				//https://tools.ietf.org/html/rfc4585#section-6.1
+				if(packet.type === 206 && (packet.reportCount === 1 || packet.reportCount === 2)){
+					this.sender.pictureLossIndication(packet);
+				}
+				if(packet.type === 205)
+					this.sender.genericNASK(packet.buffer);*/
+			}
+			if(type >= 0)
+				this.sender.feedbackRTCP(type, data);
+		}
 	}
 
 	///Метод, который возвращает временную метку NTP
@@ -131,6 +143,10 @@ class RoomReceiver extends EventEmitter{
 		return buf;
 	}
 
+	close = () => {
+		this.sender.off('data', this.receiveSRTP);
+		this.sender.off('close', this.close);
+	}
 
 }
 

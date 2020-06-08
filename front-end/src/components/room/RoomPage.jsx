@@ -1,13 +1,13 @@
 import React from 'react'
 import { url } from './../../constants'
 import { IoIosArrowBack } from 'react-icons/io'
-import { FaMicrophone, FaPlus } from 'react-icons/fa'
+import { FaMicrophone } from 'react-icons/fa'
 import { ReactComponent as WebCamIcon } from './webcam.svg'
 import { MessageBlock } from './../main/messages.jsx'
 import { AlertWrapper } from './../inputs/Alert.jsx'
 import { RippleA, RippleButton } from './../inputs/LoginInputs.jsx'
 import { numeral } from './../../tools/rus'
-
+import { Icon, MicroIcon } from './../utils.jsx'
 import VideoBlock from './video-block.jsx'
 
 import Chat from './../inputs/Chat.jsx'
@@ -19,7 +19,13 @@ export default class RoomPage extends React.Component {
 		super(props);
 		this.alertRef = React.createRef();
 		this.link = props.match.params.bind;
-		this.state = { room: null, messages: null, streams: [] };
+		this.state = { 
+			room: null, 
+			messages: null, 
+			streams: [], 
+			constraints: { video: false, audio: false } ,
+			highlighted: null,
+		};
 		this.messagesRef = React.createRef();
 		this.webrtc = null;
 	}
@@ -38,19 +44,22 @@ export default class RoomPage extends React.Component {
 				console.error(jresp.error);
 				return;
 			}
-			console.log(jresp);
+			//console.log(jresp);
 			this.webrtc = new webrtcSystem(jresp.default);
 			for(let sender of jresp.senders)
 				this.addSender(sender);
 			this.setState({messages: jresp.messages, room: jresp.room});
 			this.props.net.emitter.on('message', this.addMessage);
 			this.props.net.emitter.on('add-sender', this.addSender);
+			this.props.net.emitter.on('close-sender', this.closeSender);
 		});
 	}
 
 	componentWillUnmount(){
 		
 		this.props.net.emitter.off('message', this.addMessage);
+		this.props.net.emitter.off('close-sender', this.closeSender);
+		this.webrtc.close();
 		this.props.net.socket.send(JSON.stringify({
 			type: 'leave-room',
 			token: this.props.net.token,
@@ -59,7 +68,7 @@ export default class RoomPage extends React.Component {
 
 	addSender = async (sender) => {
 		const answer = await this.webrtc.addReciever(sender, (
-			stream => this.addStream(sender.user, stream)
+			stream => this.addStream(stream, {user: sender.user, ...sender.constraints})
 		));
 
 		this.props.net.socket.send(JSON.stringify({
@@ -68,6 +77,14 @@ export default class RoomPage extends React.Component {
 			answer,
 			sender: sender.user.login
 		}));
+	}
+
+	closeSender = ({login}) => {
+		console.log("CLOSE SENDER - ", login);
+		this.setState({streams: this.state.streams.filter(
+			({user}) => user.login !== login
+		)});
+		this.webrtc.remove(login);
 	}
 
 	sendMessage = (text) => {
@@ -120,20 +137,65 @@ export default class RoomPage extends React.Component {
 		});
 	}
 
-	addStream = (user, stream) => {
-		const _stream = {user, stream}
+	addStream = (stream, {user, video, audio}) => {
+		const _stream = {user, video, audio, stream}
 		this.setState({streams: [...this.state.streams, _stream]});
 	}
 
+
 	activateCamera = async () => {
-		const answer = await this.webrtc.connect(
-			(stream) => this.addStream(this.props.net.profile, stream)
-		);
-		this.props.net.socket.send(JSON.stringify({
-			type: 'create-connection',
-			token: this.props.net.token,
-			answer
-		}));
+		try{
+			const answer = await this.webrtc.connect(
+				(stream) => this.addStream(stream, {user: this.props.net.profile, video: true, audio: true}), 
+				{ video: true, audio: true }
+			);
+
+			this.props.net.socket.send(JSON.stringify({
+				type: 'create-connection',
+				token: this.props.net.token,
+				answer
+			}));
+
+			this.setState({constraints: { video: true, audio: true } });
+
+		}catch(e){
+			if(e.name === "NotAllowedError")
+				this.alertRef.current.alert("Сначала включите разрешение на использование веб-камеры в браузере");
+		}
+	}
+
+	activateMicrophone = async () => {
+		const constraints = this.state.constraints;
+		constraints.audio = true;
+		try{
+			const answer = await this.webrtc.connect(
+				(stream) => this.addStream(stream, {user: this.props.net.profile, ...constraints}),
+				constraints
+			);
+
+			this.props.net.socket.send(JSON.stringify({
+				type: 'create-connection',
+				token: this.props.net.token,
+				answer
+			}));
+
+			this.setState({ constraints });
+
+		}catch(e){
+			if(e.name === "NotAllowedError")
+				this.alertRef.current.alert("Сначала включите разрешение на использование микрофона в браузере");
+			console.log(e);
+		}
+	}
+
+	highlightStream (login){
+		console.log(login);
+		this.setState({highlighted: login});
+	}
+
+	clearHighlightStream (login){
+		if(this.state.highlighted === login)
+			this.setState({highlighted: null});
 	}
 
 	render(){
@@ -144,6 +206,7 @@ export default class RoomPage extends React.Component {
 					<div className="main-column">
 						<header className="main-header">
 							<RippleA 
+								title="Вернуться к переписке"
 								className="transparent" 
 								to={'/'+this.props.match.params.bind} 
 								style={{fontWeight: 600}}>
@@ -159,21 +222,51 @@ export default class RoomPage extends React.Component {
 							</div>}
 						</header>
 
-						<div className="micro-block">
-							<RippleButton className="transparent add-micro-button add" style={{float: 'right'}}>
-								<FaMicrophone size="1.9em"/>
-							</RippleButton>
+						{(this.state.room !== null) && (
+						<div className="micro-block" style={{textAlign: 'center'}}>
+							{this.state.streams.map(_stream => (
+								<MicroIcon 
+									profile={_stream.user} 
+									key={_stream.user.login} 
+									video={_stream.video} 
+									audio={_stream.audio}
+									onMouseEnter={() => this.highlightStream(_stream.user.login)}
+									onMouseLeave={() => this.clearHighlightStream(_stream.user.login)}/>
+								))}
+
+							<div  style={{float: 'right'}}>
+								<RippleButton 
+									title={this.state.constraints.audio?'Выключить микрофон':'Включить микрофон'}
+									className={'transparent add-micro-button '+(this.state.constraints.audio?"active" : "add") }
+									style={{marginRight: '10px'}}
+									onClick={this.activateMicrophone}>
+									<FaMicrophone size="1.9em"/>
+								</RippleButton>
+
+								<RippleButton 
+									title={this.state.constraints.video?'Выключить веб-камеру':'Включить веб-камеру'}
+									className={'transparent add-micro-button '+(this.state.constraints.video?"active" : "add") }
+									onClick={this.activateCamera}>
+									<WebCamIcon style={{height: '2.1em'}}/>
+								</RippleButton>
+							</div>
 						</div>
+						)}
 					</div>
 					{(this.state.room !== null) && <div className="telling-column">
-						<div className="webcam-block">
-							{this.state.streams.map(_stream => (
-								<VideoBlock srcObject={_stream.stream} key={_stream.user.login}></VideoBlock>
-							))}
-							<RippleButton className="transparent add-micro-button add" onClick={this.activateCamera}>
-								<WebCamIcon style={{height: '2.1em'}}/>
-							</RippleButton>
-						</div>
+						{this.state.streams.length > 0 && <div className="webcam-block">
+							{this.state.streams.map(_stream => _stream.video === true?(
+								<VideoBlock
+									srcObject={_stream.stream} 
+									key={_stream.user.login}
+									onMouseEnter={() => this.highlightStream(_stream.user.login)}
+									onMouseLeave={() => this.clearHighlightStream(_stream.user.login)}>
+									<div className={'video-icon '+ (_stream.user.login === this.state.highlighted?'show':'')}>
+										<Icon profile={_stream.user} size="50"/>
+									</div>
+								</VideoBlock>
+							):null)}
+						</div>}
 						<MessageBlock 
 								net={this.props.net}
 								messages={this.state.messages}

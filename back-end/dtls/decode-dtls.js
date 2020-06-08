@@ -8,10 +8,6 @@ const { ASN1 } = require('@fidm/asn1');
 
 const crypto = require('crypto');
 
-let clientRandom = null;
-let serverRandom = null;
-let key = null;
-
 let set = new Set();
 
 let bufs = [];
@@ -23,15 +19,11 @@ function decodeHandshake(buffer){
 	if(fragment.type === 'CLIENT_HELLO'){
 		const _body = decode(frag.body, protocol.ClientHello);
 		fragment.body = _body;
-
-		clientRandom = _body.random;
 	}
 
 	if(fragment.type === 'SERVER_HELLO'){
 		const _body = decode(frag.body, protocol.ServerHello);
 		fragment.body = _body;
-
-		serverRandom = _body.random;
 	}
 
 	if(fragment.type === 'CERTIFICATE'){
@@ -41,14 +33,10 @@ function decodeHandshake(buffer){
 
 		const hash = crypto.createHash('sha256');
 		hash.write(_body.certificateList[0]);
-		console.log(hash.digest('hex'));
 
 		fragment.body = _body;
 
-		key = cert.publicKey.toPEM();
-
-		console.log(key);
-
+		//key = cert.publicKey.toPEM();
 	}
 
 	if(fragment.type === 'SERVER_KEY_EXCHANGE'){
@@ -63,7 +51,7 @@ function decodeHandshake(buffer){
 
 		fragment.body = [ecdheParams, digitalSign];
 
-		const publicKey = crypto.createPublicKey(key);
+/*		const publicKey = crypto.createPublicKey(key);
 
 		console.log(publicKey.asymmetricKeyType);
 
@@ -72,7 +60,7 @@ function decodeHandshake(buffer){
 		verify.write(serverRandom);
 		verify.write(frag.body.slice(0, bytes));
 		verify.end();
-		console.log(verify.verify(key, digitalSign.signature));
+		console.log(verify.verify(key, digitalSign.signature));*/
 
 	}
 

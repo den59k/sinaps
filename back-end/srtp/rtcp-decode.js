@@ -7,7 +7,6 @@ function decodeMessage(message){
 	let type = message.readUInt8(1);
 	const length = message.readUInt16BE(2);
 	const SSRC = message.readUInt32BE(4);
-	console.log(message);
 	const rtcp = {
 		reportCount: readBits(firstByte, [3, 4, 5, 6, 7]),
 		type,
@@ -19,8 +18,6 @@ function decodeMessage(message){
 
 		case payloadTypes.SR:
 			rtcp.NTP = message.slice(8, 16);
-			console.log(rtcp.NTP.readUInt32BE(0));
-
 			rtcp.timestamp = message.readUInt32BE(16);
 			rtcp.senderPackets = message.readUInt32BE(20);
 			rtcp.senderSize = message.readUInt32BE(24);

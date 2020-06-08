@@ -20,16 +20,35 @@ class RoomSender extends EventEmitter {
 		this.sended = false;
 
 		sdp.fingerprint = room.sdp.sdpObject.fingerprint;
-		for(let media of sdp.media)
+		for(let media of sdp.media){
 			media.setup = 'actpass'
+			delete media.fingerprint;
+		}
 
 		this.sdp = sdpWrite(sdp);
 		this.type = 'send';
+
+		this.queryToSend = [null, null];
+
+		this.constraints = { audio: false, video: false };
+
+		for(let media of sdp.media){
+			console.log(media);
+			if(media.direction !== 'inactive' && media.setup === 'actpass'){
+				if(media.type === 'video')
+					this.constraints.video = true;
+				if(media.type === 'audio')
+					this.constraints.audio = true;
+			}
+		}
+
+
 	}
 	addEndpoint(rinfo){
 		this.address = rinfo.address;
 		this.port = rinfo.port;
-
+		
+		this.key = this.address+":"+this.port;
 		this.servion = new DTLSServion((b) => this.room.udpSocket.send(b, this.port, this.address));
 	}
 
@@ -42,15 +61,12 @@ class RoomSender extends EventEmitter {
 			return;
 		}
 
-		console.log("Быстрый вывод: ");
 		for(let layer of arr){
-			console.log(layer);
 
 			if(layer.encoded){
 				let _decrypted = this.servion.decrypt(layer.record);
 				if(layer.type === 'HANDSHAKE'){
 					let decrypted = decodeHandshake(_decrypted);
-					console.log(decrypted);
 
 					this.servion.addMessageCheckQueue(_decrypted);
 
@@ -92,7 +108,29 @@ class RoomSender extends EventEmitter {
 		}
 	}
 
+	/*pictureLossIndication(packet){
+		const message = [
+			{
+				reportCount: 1,
+				type: 201,
+				length: 7,
+				SSRC: packet.SSRC,
+				SSRC1: packet.buffer.readUInt32BE(0)
+			},
+			{
+				reportCount: 1,
+				type: 206,
+				length: 2,
+				SSRC: this.room.sdp.ssrcVideo,
+				buffer: buffer
+			}
+		]
+		const data = this.SRTP.encodeRTCP(message);
+		this.room.udpSocket.send(data, this.port, this.address);
+	}*/
+
 	pushSRTP(udpMessage){
+		this.servion.successSession();
 		if(this.SRTP === null) return;
 		
 		const data = this.SRTP.decode(udpMessage);
@@ -100,9 +138,32 @@ class RoomSender extends EventEmitter {
 			this.emit('data', data);
 	}
 
-	feedbackRTCP(message){
+	sendQuery(type){
+		if(this.queryToSend[type].message !== null)
+			this.room.udpSocket.send(this.queryToSend[type].message, this.port, this.address);
+
+		this.queryToSend[type] = null;
+		console.log("ОТПРАВЛЕН RTCP ПАКЕТ ОТПРАВИТЕЛЮ");
+	}
+	
+	feedbackRTCP(type, message){
+		if(this.queryToSend[type] !== null && this.queryToSend[type].message !== null)
+			return;
+
 		const data = this.SRTP.encodeRTCP(message);
-		this.room.udpSocket.send(data, this.port, this.address);
+
+		if(this.queryToSend[type] === null){
+			this.room.udpSocket.send(data, this.port, this.address);
+			console.log("ОТПРАВЛЕН RTCP ПАКЕТ ОТПРАВИТЕЛЮ");
+			this.queryToSend[type] = { message: null };
+			setTimeout(() => this.sendQuery(type), 500);
+		}else{
+			this.queryToSend[type] = {message: data};
+		}
+	}
+
+	close(){
+		this.emit('close', this.login);
 	}
 
 }

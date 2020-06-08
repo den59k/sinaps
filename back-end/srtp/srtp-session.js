@@ -20,8 +20,6 @@ function XOR(a, b, offsetB){
 class SRTPsession{
 
 	constructor(keys){
-		this.ROC = 0;
-		this.lastSequence = 0;
 
 		this.clientMasterKey = keys.clientMasterKey;
 		this.serverMasterKey = keys.serverMasterKey;
@@ -38,8 +36,7 @@ class SRTPsession{
 		this.sRTP = {};		//sender RTP keys
 		this.sRTCP = {}; 	//sender RTCP keys
 
-		this.senderPackets = 0;
-		this.senderSize = 0;
+		this.sendedInfo = [];
 		this.RTCPindex = 1;
 
 		const iv = Buffer.alloc(16, 0);
@@ -88,8 +85,6 @@ class SRTPsession{
 	}
 
 	encodeRTCP(arr){
-		console.log("ПЫТАЮСЬ ЗАКОДИРОВАТЬ: ");
-		console.log(arr);
 		const bufs = arr.map(this.packetEncode);
 
 		const data = Buffer.concat(bufs);
@@ -131,18 +126,17 @@ class SRTPsession{
 		buf.writeUInt8(packet.type, 1);
 		buf.writeUInt16BE(packet.length, 2);
 		buf.writeUInt32BE(packet.SSRC, 4);
-
+	
 		if(packet.length === 1)
 			return buf;
 
 		switch(packet.type){
 			case payloadTypes.SR:
+				const sended = this.getSendedInfo(packet.SSRC);
 				packet.NTP.copy(buf, 8);
 				buf.writeUInt32BE(packet.timestamp, 16);
-				buf.writeUInt32BE(this.senderPackets, 20);
-				buf.writeUInt32BE(this.senderSize, 24);
-				console.log("SENDER PACKETS: "+this.senderPackets);
-				console.log("SENDER SIZE: "+this.senderSize);
+				buf.writeUInt32BE(sended.packets, 20);
+				buf.writeUInt32BE(sended.size, 24);
 			break;
 
 			case payloadTypes.SDES:
@@ -157,10 +151,15 @@ class SRTPsession{
 			break;
 
 			case payloadTypes.RR:
+				const _sended = this.getSendedInfo(packet.SSRC1);
 				buf.writeUInt32BE(packet.SSRC1, 8);
-				buf.writeUInt32BE(0, 12);
-				buf.writeUInt32BE(packet.highestSequence, 16);
-				buf.writeUInt32BE(packet.jitter, 20);
+				buf.writeUInt32BE(0, 12);	//Тип мы ни одного пакета такие не пропустили :D
+				//Дальше берем номер последнего полученного пакетика
+				const highestSequence = (_sended.ROC << 16) + _sended.lastSequence;
+				//console.log("Sequence number: ", highestSequence);
+				//console.log("Jitter: ", _sended.jitter << 0);
+				buf.writeUInt32BE(highestSequence, 16);
+				buf.writeUInt32BE(_sended.jitter << 0, 20);
 			break;
 
 			default:
@@ -171,6 +170,9 @@ class SRTPsession{
 	}
 
 	encodeRTP(data){
+
+		const sended = this.getSendedInfo(data.SSRC);
+		this.checkROC(sended, data.sequenceNumber);
 		//https://tools.ietf.org/html/rfc3550#section-5
 		//Первый байт 
 		const header = Buffer.alloc(12);
@@ -190,7 +192,7 @@ class SRTPsession{
 
 		const buffer = Buffer.alloc(10, 0);
 		buffer.writeUInt32BE(data.SSRC, 0);
-		buffer.writeUInt32BE(data.ROC, 4);
+		buffer.writeUInt32BE(sended.ROC, 4);
 		buffer.writeUInt16BE(data.sequenceNumber, 8);
 
 		//console.log("buffer: ", buffer.toString('hex'));
@@ -201,13 +203,13 @@ class SRTPsession{
 		const cipher = crypto.createCipheriv('aes-128-ctr', this.sRTP.k_e, IV);
 		let encryptedData = cipher.update(data.data);
 		let finalPart = cipher.final();
-		this.senderSize+=(data.data.length+10);
+		sended.size+=(data.data.length+10);
 		
 		const finalData = Buffer.concat([header, encryptedData, finalPart]);
 
 		//Вычисляем auth подпись сообщения
 		const ROCbuffer = Buffer.alloc(4, 0);
-		ROCbuffer.writeUInt32BE(data.ROC);
+		ROCbuffer.writeUInt32BE(sended.ROC);
 
 		//console.log(authData.length);
 		//console.log("k_a:", this.sRTP.k_a);
@@ -217,9 +219,49 @@ class SRTPsession{
 		hmac.update(ROCbuffer);
 
 		const authTag = hmac.digest();
-		this.senderPackets++;
+		sended.packets++;
 	
 		return Buffer.concat([finalData, authTag.slice(0, 10)]);
+	}
+
+
+	getSendedInfo(SSRC){
+
+		for(let a of this.sendedInfo)
+			if(a.SSRC === SSRC)
+				return a;
+
+		const info = {SSRC, size: 0, packets: 0, ROC: 0, lastSequence: -1};
+		this.sendedInfo.push(info);
+
+		return info;
+	}
+
+	checkROC(sended, sequence){
+		if((sequence > sended.lastSequence && Math.abs(sended.lastSequence-sequence) < 1000) 
+			|| sended.lastSequence < 0)
+			sended.lastSequence = sequence;	
+
+		//Если у нас такая фигня - увеличим ROC
+		if(sended.lastSequence-sequence > 64000){
+			sended.ROC++;
+			sended.lastSequence = sequence;
+		}
+	}
+
+	//https://tools.ietf.org/html/rfc3550#appendix-A.8
+	calculateJitter(sended, timestamp){
+		if(sended.timestamp === undefined){
+			sended.timestamp = timestamp;
+			sended.jitter = 0;
+			return;
+		}
+
+		let d = timestamp - sended.timestamp;
+		if(d < 0) d = -d;
+		sended.jitter += (1/16)*(d - sended.jitter);
+
+		sended.timestamp = timestamp;
 	}
 
 	decode(udpMessage){
@@ -236,16 +278,9 @@ class SRTPsession{
 			let CSRCcount = readBits(type, [4, 5, 6, 7]);
 			let extensionFlag = readBit(type, 3);
 
-
-			
-			if(sequence > this.lastSequence && Math.abs(this.lastSequence-sequence) < 1000)
-				this.lastSequence = sequence;	
-
-			//Если у нас такая фигня - увеличим ROC
-			if(this.lastSequence-sequence > 64000)
-				this.ROC++;
-				this.lastSequence = sequence;
-
+			const sended = this.getSendedInfo(SSRC);
+			this.checkROC(sended, sequence);
+			this.calculateJitter(sended, timestamp);
 			//console.log("Это RTP сообщение");
 
 			//console.log("version: ", readBits(type, [0, 1]));
@@ -273,7 +308,7 @@ class SRTPsession{
 				timestamp,
 				SSRC,
 				CSRC: [],
-				ROC: this.ROC
+				_ROC: sended.ROC
 			};
 
 			let pos = 12;
@@ -297,7 +332,7 @@ class SRTPsession{
 			//Вычисляем auth подпись сообщения
 			let authData = udpMessage.slice(0, udpMessage.length-10);
 			const ROCbuffer = Buffer.alloc(4, 0);
-			ROCbuffer.writeUInt32BE(this.ROC);
+			ROCbuffer.writeUInt32BE(sended.ROC);
 
 			//console.log(authData.length);
 			//console.log("k_a:", this.rRTP.k_a);
@@ -319,7 +354,7 @@ class SRTPsession{
 			//https://tools.ietf.org/html/rfc3711#section-4.1.1
 			const buffer = Buffer.alloc(10, 0);
 			buffer.writeUInt32BE(SSRC, 0);
-			buffer.writeUInt32BE(this.ROC, 4);
+			buffer.writeUInt32BE(sended.ROC, 4);
 			buffer.writeUInt16BE(sequence, 8);
 
 			//console.log("buffer: ", buffer.toString('hex'));
@@ -352,7 +387,6 @@ class SRTPsession{
 			let index = udpMessage.readUInt32BE(udpMessage.length-14);
 			const flag = index >>> 31;
 			index = index & ~(1 << 31);
-			console.log("index: ", index);
 
 			const SSRC = udpMessage.readUInt32BE(4);
 
@@ -376,10 +410,6 @@ class SRTPsession{
 
 			const arr = decodeRTCP(data);
 
-			for(let rtcp of arr){
-				console.log(rtcp);
-			}
-
 			/*let _type = data.readUInt8(0);
 			let _payload = data.readUInt8(1);
 			const _length = data.readUInt16BE(2);
@@ -391,8 +421,6 @@ class SRTPsession{
 			console.log('Packet type: ', _payload);
 			console.log('Length: ', _length);
 			console.log('SSRC: ', _SSRC);*/
-
-			
 
 			return arr;
 

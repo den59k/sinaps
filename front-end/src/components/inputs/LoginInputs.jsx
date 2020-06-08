@@ -96,8 +96,9 @@ export class RippleButton extends React.Component {
 	render(){
 		const className = this.props.className || '';
 		return (
-			<button className={'my-button '+className} onMouseDown={this.rippleEffect} style={this.style}
-				onClick={this.props.onClick}>
+			<button  {...this.props} 
+				className={'my-button '+className} 
+				onMouseDown={this.rippleEffect} >
 				{this.props.children}
 				{this.state.rippleElements.map((el) => <div className="ripple-effect" 
 					style={{top: el.top, left: el.left, width: el.size+'px', height: el.size+'px'}} 
@@ -113,11 +114,9 @@ export class RippleA extends RippleButton {
 		const className = this.props.className || '';
 		return (
 			<Link 
-				to={this.props.to} 
+				{...this.props} 
 				className={'my-button clear '+className} 
-				onMouseDown={this.rippleEffect} 
-				style={this.style}
-				onClick={this.props.onClick}>
+				onMouseDown={this.rippleEffect} >
 				{this.props.children}
 				{this.state.rippleElements.map((el) => <div className="ripple-effect" 
 					style={{top: el.top, left: el.left, width: el.size+'px', height: el.size+'px'}} 

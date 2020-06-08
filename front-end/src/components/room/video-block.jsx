@@ -5,11 +5,17 @@ const VideoBlock = (props) => {
 	const ref = useRef(null);
 	useEffect(() => {
 		ref.current.srcObject = props.srcObject;
-		console.log(props.srcObject.getTracks());
 	}, [props.srcObject])
 
+	const _props = {...props};
+	delete _props.srcObject;
+
 	return (
-		<video ref={ref} autoPlay={true} muted={true}></video>
+		<div className="video-wrapper" {..._props}>
+			<video ref={ref} autoPlay={true}>
+			</video>
+			{props.children}
+		</div>
 	);
 }
 

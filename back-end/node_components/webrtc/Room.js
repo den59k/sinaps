@@ -37,7 +37,7 @@ class Room{
 		console.log(`Комната ${chalk.yellow(this.link)} создана`);
 
 		this.senders = new Map();
-		this.receives = new Map();
+		this.receivers = new Map();
 		this.candidates = new Map();
 		this.session = session;
 	}
@@ -54,6 +54,7 @@ class Room{
 		for(let sender of this.senders.values())
 			arr.push({
 				user: this.session.tokens.get(sender.token).profile,
+				constraints: sender.constraints,
 				offer: { type: 'offer', sdp: sender.sdp }, 
 				ice: this.getIce(sender.ufrag)
 			});
@@ -62,7 +63,7 @@ class Room{
 
 	getMessage = (udpMessage, rinfo) => {
 		const key = rinfo.address+':'+rinfo.port;
-		console.log(`Получено: ${udpMessage.length} байт от ${key}`);
+		//console.log(`Получено: ${udpMessage.length} байт от ${key}`);
 		const flag = udpMessage.readUInt8(0);
 
 		const suser = (this.senders.has(key))?this.session.tokens.get(this.senders.get(key).token):null;
@@ -98,7 +99,7 @@ class Room{
 						console.log("ОТПРАВЛЕН ОТВЕТ");
 					}
 
-					if(this.senders.has(key) || this.senders.has(key))
+					if(this.senders.has(key) || this.receivers.has(key))
 						return;
 
 					const request = myStun.request(stunMessage, {
@@ -113,8 +114,8 @@ class Room{
 					if(candidate.type === 'send')
 						this.senders.set(key, candidate);
 					else
-						this.receives.set(key, candidate);
-					
+						this.receivers.set(key, candidate);
+
 					candidate.addEndpoint(rinfo);
 					//this.candidates.delete(ufrag);
 
@@ -125,34 +126,46 @@ class Room{
 				if(this.senders.has(key))
 					this.senders.get(key).pushDTLS(udpMessage);
 
-				if(this.receives.has(key))
-					this.receives.get(key).pushDTLS(udpMessage);
+				if(this.receivers.has(key))
+					this.receivers.get(key).pushDTLS(udpMessage);
 				
 			}
 		}else{
 			if(this.senders.has(key))
 				this.senders.get(key).pushSRTP(udpMessage);
 
-			if(this.receives.has(key))
-				this.receives.get(key).pushSRTP(udpMessage);
+			if(this.receivers.has(key))
+				this.receivers.get(key).pushSRTP(udpMessage);
 		}
 	}
 
 	//Мы записываем потенциального кандидата, 
 	//который хочет начать видеосвязь
-	createConnection(m){
+	createConnection(m, user, ws ){
 		if(!this.session.tokens.has(m.token) || !this.sockets.has(m.token)){
 			console.error('error token');
 			return;
 		}
+		for(let sender of this.senders)
+			if(sender.login === user.profile.login){
+				ws.send({
+					type: "sender-error",
+					data: {}
+				});
+				return;
+			}
 		const sdpInfo = sdpParse(m.answer.sdp);
-		
-		console.log(sdpInfo);
+
+		if(ws.candidates === undefined)
+			ws.candidates = [];
 
 		const candidate = new RoomSender(this, sdpInfo, m.token);
 
+		ws.candidates.push(candidate);
+
 		candidate.once('start-send', this.senderConnected);
-		this.candidates.set(sdpInfo.media[0].iceUfrag, candidate);
+		candidate.once('close', this.senderClose);
+		this.candidates.set(candidate.ufrag, candidate);
 	}
 
 	//При подключении, мы должны отправить всем сообщение, что юзер начинает видеопоток
@@ -165,13 +178,26 @@ class Room{
 					data: {
 						user: this.session.tokens.get(sender.token).profile,
 						offer: { type: 'offer', sdp: sender.sdp }, 
+						constraints: sender.constraints,
 						ice: this.getIce(sender.ufrag)
 					}
 				}));
 		})
 	}
 
-	createReceive(m){
+	senderClose = (login) => {
+		console.log("SENDER CLOSED!");
+		this.sockets.forEach((socket, token) => {
+			socket.send(JSON.stringify({
+				type: 'close-sender',
+				data: {
+					login
+				}
+			}));
+		});
+	}
+
+	createReceive(m, user, ws ){
 		const sdpInfo = sdpParse(m.answer.sdp);
 		let _sender = null;
 		for(let sender of this.senders.values())
@@ -183,8 +209,13 @@ class Room{
 			return;
 
 		console.log('Пытаюсь получить поток от ' + m.sender);
+		if(ws.candidates === undefined)
+			ws.candidates = [];
 
 		const candidate = new RoomReceiver(this, _sender, sdpInfo, m.token);
+
+		ws.candidates.push(candidate);
+
 		this.candidates.set(sdpInfo.media[0].iceUfrag, candidate);
 	}
 
@@ -208,8 +239,22 @@ class Room{
 		return false;
 	}
 
+	//Вызывается в тот момент, когда юзер выходит из комнаты
 	deleteUserSocket(token, suser){
-		this.sockets.delete(token);
+		if(this.sockets.has(token)){
+			if(this.sockets.get(token).candidates){
+				for(let candidate of this.sockets.get(token).candidates){
+					console.log("DELETE "+candidate.key);
+					candidate.close();
+					this.candidates.delete(candidate.ufrag);
+					this.senders.delete(candidate.key);
+					this.receivers.delete(candidate.key);
+				}
+				delete this.sockets.get(token).candidates;
+			}
+			this.sockets.delete(token);
+		}
+
 		if(!this.existOnRoom(suser)){
 			const idstr = suser._id.toHexString();
 			this.users.delete(idstr);

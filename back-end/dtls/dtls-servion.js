@@ -38,6 +38,15 @@ class DTLSsession {
 		this.cipherCount = 0;
 
 		this.fragments = [];
+
+		this.resendInterval = null;
+	}
+
+	successSession(){
+		if(this.resendInterval !== null){
+			clearInterval(this.resendInterval);
+			this.resendInterval = null;
+		}
 	}
 
 	sendAll(){
@@ -67,16 +76,15 @@ class DTLSsession {
 				this.sequenceNumber = 0;
 			}
 		}
-
-		this.send(ostream.slice());
+		const data = ostream.slice()
+		this.send(data);
 		console.log("ОТВЕТ ОТПРАВЛЕН");
-		console.log(ostream.slice().length);
-		let arr = decodeDTLS(ostream.slice());
-		for(let layer of arr){
-			console.log(layer);
-			if(layer.fragment && layer.fragment.body)
-				console.log(layer.fragment.body);
-		}
+
+		this.resendInterval = setInterval(() => {
+			console.log("ОТВЕТ ОТПРАВЛЕН ЕЩЕ РАЗ ДЛЯ НЕПОНЯТЛИВЫХ, БЛИН!");
+			this.send(data)
+		}, 1000);
+	
 	}
 
 
@@ -100,13 +108,17 @@ class DTLSsession {
 	receivedMessages = [];
 	addMessageCheckQueue = fragment => {
 		const id = fragment.readUInt8(0);		//Здесь мы считаем тип сообщения, чтобы не было повторов
-		if(!this.receivedMessages.includes(id)){
-			this.receivedMessages.push(id);
-			this.addMessageQueue(fragment);
-			console.log("PUSHES", id);
-		}else{
-			console.log("DO NOT PUSHES", id);
+		if(this.receivedMessages.includes(id))
+			return false;
+		this.receivedMessages.push(id);
+		this.addMessageQueue(fragment);
+
+		if(this.resendInterval !== null){
+			clearInterval(this.resendInterval);
+			this.resendInterval = null;
 		}
+
+		return true;
 	}
 
 	addMessageQueue = fragment => {
@@ -115,16 +127,16 @@ class DTLSsession {
 
 	createCipher(){
 		this.premaster = this.curve.computeSecret(this.clientKey);
-		console.log("CLIENT KEY: ", this.clientKey);
-		console.log("SERVER KEY: ", this.serverKey);
-		console.log("PRE MASTER KEY: ", this.premaster);
+		//console.log("CLIENT KEY: ", this.clientKey);
+		//console.log("SERVER KEY: ", this.serverKey);
+		//console.log("PRE MASTER KEY: ", this.premaster);
 
 
 		let seed = Buffer.concat([this.clientRandom, this.serverRandom]);
 		this.masterSecret = prf(48, this.premaster, 'master secret', seed);
-		console.log("MASTER SECRET: ", this.masterSecret);
+		//console.log("MASTER SECRET: ", this.masterSecret);
 
-		console.log("SEED: ", seed);
+		//console.log("SEED: ", seed);
 
 		seed = Buffer.concat([this.serverRandom, this.clientRandom]);
 		const keyBlock = prf(40, this.masterSecret, 'key expansion', seed);
@@ -139,12 +151,12 @@ class DTLSsession {
 		this.serverNonce = Buffer.alloc(12, 0);
 
 		clientIVfixed.copy(this.clientNonce, 0);
-    	serverIVfixed.copy(this.serverNonce, 0);
+    serverIVfixed.copy(this.serverNonce, 0);
 
-		console.log("clientWriteKey: ", this.clientWriteKey);
-		console.log("serverWriteKey: ", this.serverWriteKey);
-		console.log("clientNonce: ", this.clientNonce);
-		console.log("serverNonce: ", this.serverNonce);
+		//console.log("clientWriteKey: ", this.clientWriteKey);
+		//console.log("serverWriteKey: ", this.serverWriteKey);
+		//console.log("clientNonce: ", this.clientNonce);
+		//console.log("serverNonce: ", this.serverNonce);
 	}
 
 	getRTCPkeys(){
@@ -165,7 +177,7 @@ class DTLSsession {
 
 	decrypt(record){
 		const m = record.fragment;
-		console.log("DECRYPTING MESSAGE: ", m);
+		//console.log("DECRYPTING MESSAGE: ", m);
 
 		const explicit = m.slice(0, 8);
 		explicit.copy(this.clientNonce, 4);
@@ -185,7 +197,7 @@ class DTLSsession {
 			length: encryted.length,
 		};
 
-		console.log(additionalData);
+		//console.log(additionalData);
 
 		const additionalBuffer = encode(additionalData, pl.AEADAdditionalData).slice();
 
@@ -284,6 +296,7 @@ class DTLSsession {
 
 
 		this.curve = crypto.createECDH('prime256v1');
+
 		this.serverKey = this.curve.generateKeys();
 
 		const ECparam = {
@@ -293,8 +306,6 @@ class DTLSsession {
 		}
 
 		const _data = encode(ECparam, pl.ECDHParams).slice();
-
-		console.log(_data);
 
 		const sign = crypto.createSign('SHA256');
 		sign.write(this.clientRandom);
@@ -308,8 +319,6 @@ class DTLSsession {
 		}
 
 		const _signature = encode(signature, pl.DigitallySigned).slice();
-
-		console.log(_signature);
 
 		this.addMessageHanshake( {type: 'HANDSHAKE', ftype: 'SERVER_KEY_EXCHANGE', 
 			body: Buffer.concat([_data, _signature]) } );

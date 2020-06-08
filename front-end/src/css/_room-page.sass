@@ -1,3 +1,5 @@
+$main-color: #FF5C00
+
 .room-header-title
 	flex-grow: 2
 	display: flex
@@ -30,6 +32,17 @@
 .micro-block
 	padding: 5px 20px
 
+	.icon-wrapper
+		margin: 0 10px
+		float: none
+		position: relative
+
+		.sub-icon
+			position: absolute
+			bottom: 0
+			z-index: 5
+			height: 1.8em
+	
 .telling-column
 	display: flex
 	flex-direction: column
@@ -38,7 +51,6 @@
 	border-left: 1px solid #D1D1D1
 
 	.webcam-block
-		flex-basis: 200px
 		background-color: #FFFFFF
 		flex-shrink: 0
 		box-shadow: 0 15px 15px -15px rgba(0, 0, 0, 0.1)
@@ -46,10 +58,36 @@
 		display: flex
 		justify-content: center
 		align-items: center
+		flex-wrap: wrap
 
 	.messages-block
 		flex-grow: 1
 		overflow-y: auto
+
+.video-wrapper
+	flex-basis: 50%
+	max-width: 70%
+	flex-shrink: 0
+	flex-grow: 1
+	position: relative
+	video
+		width: 100%
+		display: block
+		max-height: 200px
+
+	.video-icon
+		position: absolute
+		top: 50%
+		left: 50%
+		margin-left: -25px
+		margin-top: -25px
+		opacity: 0
+		transition: opacity 0.3s
+		border: 5px solid white
+		border-radius: 50%
+
+		&.show
+			opacity: 1
 
 body
 	.my-button.add-micro-button
@@ -60,6 +98,7 @@ body
 		border: 2px solid #C2C2C2
 		border-radius: 50%
 		position: relative
+		flex-shrink: 0
 
 	.my-button.add:before
 		content: ''
@@ -71,3 +110,8 @@ body
 		top: 50%
 		left: 50%
 		margin-top: -10px
+
+	.my-button.add-micro-button.active
+		color: white
+		border-color: $main-color
+		background-color: $main-color
