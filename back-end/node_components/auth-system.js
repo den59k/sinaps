@@ -1,7 +1,8 @@
 const crypto = require('crypto')
 const {nanoid} = require('nanoid')
 const translit = require('cyrillic-to-translit-js')()
-
+const {email, name} = require('./tools/reg.js')
+ 
 function createAuthSystem(session){
 	const app = session.app;
 	const usersDB = session.usersDB;
@@ -90,6 +91,16 @@ function createAuthSystem(session){
 		
 		if(exist !== null){
 			res.send({errors: {mail: 'Данный адрес уже занят'}});
+			return;
+		}
+
+		if(!name.test(req.body.name)){
+			res.send({errors: {name: 'Поле "Имя" содержит недопустимые символы'}});
+			return;
+		}
+
+		if(!name.test(req.body.surname)){
+			res.send({errors: {name: 'Поле "Фамилия" содержит недопустимые символы'}});
 			return;
 		}
 

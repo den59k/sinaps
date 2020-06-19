@@ -34,7 +34,7 @@ class RoomSender extends EventEmitter {
 
 		for(let media of sdp.media){
 			console.log(media);
-			if(media.direction !== 'inactive' && media.setup === 'actpass'){
+			if(media.direction !== 'inactive'){
 				if(media.type === 'video')
 					this.constraints.video = true;
 				if(media.type === 'audio')

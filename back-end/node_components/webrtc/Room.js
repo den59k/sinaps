@@ -66,7 +66,8 @@ class Room{
 		//console.log(`Получено: ${udpMessage.length} байт от ${key}`);
 		const flag = udpMessage.readUInt8(0);
 
-		const suser = (this.senders.has(key))?this.session.tokens.get(this.senders.get(key).token):null;
+		const suser = (this.senders.has(key))?
+			this.session.tokens.get(this.senders.get(key).token):null;
 
 		if(flag >> 6 === 0){
 			if(flag < 20){
@@ -122,7 +123,9 @@ class Room{
 				}
 			}else{
 				if(suser !== null)
-					console.log(`Это ${chalk.cyan("DTLS")} сообщение от ${chalk.green(suser.profile.login)}`);
+					console.log(`Это ${chalk.cyan("DTLS")} сообщение от ${
+						chalk.green(suser.profile.login)
+					}`);
 				if(this.senders.has(key))
 					this.senders.get(key).pushDTLS(udpMessage);
 
@@ -146,12 +149,15 @@ class Room{
 			console.error('error token');
 			return;
 		}
-		for(let sender of this.senders)
+
+		for(let sender of this.senders.values())
 			if(sender.login === user.profile.login){
-				ws.send({
-					type: "sender-error",
-					data: {}
-				});
+				ws.send(JSON.stringify({
+					type: "room-error",
+					data: {
+						error: 'ExistLogin'
+					}
+				}));
 				return;
 			}
 		const sdpInfo = sdpParse(m.answer.sdp);
@@ -220,15 +226,28 @@ class Room{
 	}
 
 	addUserSocket(token, suser){
+		const idstr = suser._id.toHexString();
+
+		if(!this.users.has(idstr))
+			this.updateUserCount(this.users.size+1);
+		
 		this.sockets.set(token, suser.sockets.get(token));
 		suser.sockets.get(token).room = this;
-
-		const idstr = suser._id.toHexString();
+		
 		if(!this.users.has(idstr)){
 			this.users.set(idstr, suser);
 			console.log(suser.profile.login + ' присоединился к комнате ' +this.link);
 		}
+	}
 
+	updateUserCount(count){
+		for(let socket of this.sockets.values())
+			socket.send(JSON.stringify({
+				type: 'update-user-count',
+				data: {
+					userCount: count
+				}
+			}));
 	}
 
 	existOnRoom (user){
@@ -258,6 +277,7 @@ class Room{
 		if(!this.existOnRoom(suser)){
 			const idstr = suser._id.toHexString();
 			this.users.delete(idstr);
+			this.updateUserCount(this.users.size);
 			console.log(suser.profile.login + ' вышел из комнаты ' +this.link);
 		}
 	}

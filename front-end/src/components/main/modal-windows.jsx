@@ -129,7 +129,17 @@ export function ModalGroup (props) {
 					{group.users.map(user => <Icon profile={user} key={user.login} size="50"/>)}
 				</div>
 				{group.my?(
-					<RippleA to={'/'+props.link} >Перейти к сообщениям</RippleA>
+					<div className="modal-buttons-vertical">
+						<RippleA to={'/'+props.link} className="transparent">
+							Перейти к сообщениям
+						</RippleA>
+						<RippleA to={'/'+props.link+'/c'} >
+							Перейти к конференции
+						</RippleA>
+						<RippleButton onClick={props.cancel} className="transparent">
+							Назад
+						</RippleButton>
+					</div>
 				):(
 				<div className="modal-buttons">
 					<RippleButton className="transparent" onClick={props.cancel}>

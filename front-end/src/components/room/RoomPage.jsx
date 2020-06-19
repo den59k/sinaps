@@ -23,6 +23,7 @@ export default class RoomPage extends React.Component {
 			room: null, 
 			messages: null, 
 			streams: [], 
+			context: null,
 			constraints: { video: false, audio: false } ,
 			highlighted: null,
 		};
@@ -45,20 +46,27 @@ export default class RoomPage extends React.Component {
 				return;
 			}
 			//console.log(jresp);
+			const context = new (window.AudioContext || window.webkitAudioContext)();
 			this.webrtc = new webrtcSystem(jresp.default);
+			this.webrtc.context = context;
 			for(let sender of jresp.senders)
 				this.addSender(sender);
-			this.setState({messages: jresp.messages, room: jresp.room});
+			this.setState({messages: jresp.messages, room: jresp.room, context});
 			this.props.net.emitter.on('message', this.addMessage);
 			this.props.net.emitter.on('add-sender', this.addSender);
 			this.props.net.emitter.on('close-sender', this.closeSender);
+			this.props.net.emitter.on('update-user-count', this.updateUserCount);
+			this.props.net.emitter.on('room-error', this.onError);
 		});
 	}
 
 	componentWillUnmount(){
 		
 		this.props.net.emitter.off('message', this.addMessage);
+		this.props.net.emitter.off('add-sender', this.addSender);
 		this.props.net.emitter.off('close-sender', this.closeSender);
+		this.props.net.emitter.off('update-user-count', this.updateUserCount);
+		this.props.net.emitter.on('room-error', this.onError);
 		this.webrtc.close();
 		this.props.net.socket.send(JSON.stringify({
 			type: 'leave-room',
@@ -85,6 +93,20 @@ export default class RoomPage extends React.Component {
 			({user}) => user.login !== login
 		)});
 		this.webrtc.remove(login);
+	}
+
+	updateUserCount = ({userCount}) => {
+		const room = Object.assign({}, this.state.room, {userCount});
+		this.setState({room});
+	}
+
+	onError = ({error}) => {
+		switch (error){
+			case 'ExistLogin': this.alertRef.current.alert(
+				'Ваш профиль уже используется в этой комнате для видеосвязи'
+				); break;
+			default: console.error(error); break;
+		}
 	}
 
 	sendMessage = (text) => {
@@ -145,8 +167,16 @@ export default class RoomPage extends React.Component {
 
 	activateCamera = async () => {
 		try{
+			for(let stream of this.state.streams){
+				if(stream.user.login === this.props.net.profile.login)
+					throw(new Error('ExistLogin'));
+			}
 			const answer = await this.webrtc.connect(
-				(stream) => this.addStream(stream, {user: this.props.net.profile, video: true, audio: true}), 
+				(stream) => this.addStream(stream, {
+					user: this.props.net.profile, 
+					video: true, 
+					audio: true
+				}), 
 				{ video: true, audio: true }
 			);
 
@@ -160,7 +190,12 @@ export default class RoomPage extends React.Component {
 
 		}catch(e){
 			if(e.name === "NotAllowedError")
-				this.alertRef.current.alert("Сначала включите разрешение на использование веб-камеры в браузере");
+				this.alertRef.current.alert(
+					"Сначала включите разрешение на использование веб-камеры в браузере"
+				);
+			if(e.message === "ExistLogin")
+				this.onError({error: e.message});
+			console.log(e.message);
 		}
 	}
 
@@ -168,6 +203,11 @@ export default class RoomPage extends React.Component {
 		const constraints = this.state.constraints;
 		constraints.audio = true;
 		try{
+			for(let stream of this.state.streams){
+				if(stream.user.login === this.props.net.profile.login)
+					throw(new Error('ExistLogin'));
+			}
+
 			const answer = await this.webrtc.connect(
 				(stream) => this.addStream(stream, {user: this.props.net.profile, ...constraints}),
 				constraints
@@ -184,12 +224,13 @@ export default class RoomPage extends React.Component {
 		}catch(e){
 			if(e.name === "NotAllowedError")
 				this.alertRef.current.alert("Сначала включите разрешение на использование микрофона в браузере");
+			if(e.message === "ExistLogin")
+				this.onError({error: e.message});
 			console.log(e);
 		}
 	}
 
 	highlightStream (login){
-		console.log(login);
 		this.setState({highlighted: login});
 	}
 
@@ -226,19 +267,19 @@ export default class RoomPage extends React.Component {
 						<div className="micro-block" style={{textAlign: 'center'}}>
 							{this.state.streams.map(_stream => (
 								<MicroIcon 
-									profile={_stream.user} 
 									key={_stream.user.login} 
-									video={_stream.video} 
-									audio={_stream.audio}
+									stream={_stream}
+									context={this.state.context}
 									onMouseEnter={() => this.highlightStream(_stream.user.login)}
-									onMouseLeave={() => this.clearHighlightStream(_stream.user.login)}/>
+									onMouseLeave={() => this.clearHighlightStream(_stream.user.login)}
+									/>
 								))}
 
 							<div  style={{float: 'right'}}>
 								<RippleButton 
 									title={this.state.constraints.audio?'Выключить микрофон':'Включить микрофон'}
 									className={'transparent add-micro-button '+(this.state.constraints.audio?"active" : "add") }
-									style={{marginRight: '10px'}}
+									style={{margin: '4px'}}
 									onClick={this.activateMicrophone}>
 									<FaMicrophone size="1.9em"/>
 								</RippleButton>
@@ -246,6 +287,7 @@ export default class RoomPage extends React.Component {
 								<RippleButton 
 									title={this.state.constraints.video?'Выключить веб-камеру':'Включить веб-камеру'}
 									className={'transparent add-micro-button '+(this.state.constraints.video?"active" : "add") }
+									style={{margin: '4px', marginRight: '0'}}
 									onClick={this.activateCamera}>
 									<WebCamIcon style={{height: '2.1em'}}/>
 								</RippleButton>

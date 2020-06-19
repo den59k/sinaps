@@ -80,10 +80,10 @@ class DTLSsession {
 		this.send(data);
 		console.log("ОТВЕТ ОТПРАВЛЕН");
 
-		this.resendInterval = setInterval(() => {
+		/*this.resendInterval = setInterval(() => {
 			console.log("ОТВЕТ ОТПРАВЛЕН ЕЩЕ РАЗ ДЛЯ НЕПОНЯТЛИВЫХ, БЛИН!");
 			this.send(data)
-		}, 1000);
+		}, 1000);*/
 	
 	}
 
@@ -202,9 +202,12 @@ class DTLSsession {
 		const additionalBuffer = encode(additionalData, pl.AEADAdditionalData).slice();
 
 
-		const decipher = crypto.createDecipheriv('aes-128-gcm', this.clientWriteKey, this.clientNonce, {
-		        authTagLength: 16,
-		      });
+		const decipher = crypto.createDecipheriv(
+			'aes-128-gcm', 
+			this.clientWriteKey, 
+			this.clientNonce, 
+			{ authTagLength: 16 }
+		);
 
 		decipher.setAuthTag(authTag);
 		decipher.setAAD(additionalBuffer);
@@ -231,9 +234,12 @@ class DTLSsession {
 
 		const additionalBuffer = encode(additionalData, pl.AEADAdditionalData).slice();
 
-		const cipher = crypto.createCipheriv('aes-128-gcm', this.serverWriteKey, this.serverNonce, {
-			authTagLength: 16,
-		});
+		const cipher = crypto.createCipheriv(
+			'aes-128-gcm', 
+			this.serverWriteKey, 
+			this.serverNonce, 
+			{ authTagLength: 16 }
+		);
 
 		cipher.setAAD(additionalBuffer, {
 			plaintextLength: data.length,
@@ -284,7 +290,11 @@ class DTLSsession {
 
 		const _hello = encode(hello, pl.ServerHello).slice();
 
-		this.addMessageHanshake({type: 'HANDSHAKE', ftype: 'SERVER_HELLO', body: _hello});
+		this.addMessageHanshake({
+			type: 'HANDSHAKE', 
+			ftype: 'SERVER_HELLO', 
+			body: _hello
+		});
 
 
 		const certificate = {
@@ -292,7 +302,11 @@ class DTLSsession {
 		}
 		const _certificate = encode(certificate, pl.Certificate).slice();
 
-		this.addMessageHanshake({type: 'HANDSHAKE', ftype: 'CERTIFICATE', body: _certificate});
+		this.addMessageHanshake({
+			type: 'HANDSHAKE', 
+			ftype: 'CERTIFICATE', 
+			body: _certificate
+		});
 
 
 		this.curve = crypto.createECDH('prime256v1');
@@ -325,15 +339,29 @@ class DTLSsession {
 
 		const certificateRequest = {
 			certificateTypes: [ 1, 64, 2],
-			signatures: [ 1027, 1283, 1539,  515, 2052, 2053, 2054, 1025, 1281, 1537,  513, 1026, 1282, 1538,  514],
+			signatures: [ 
+				1027, 1283, 1539,  
+				515, 2052, 2053, 
+				2054, 1025, 1281, 
+				1537,  513, 1026,
+				282, 1538,  514
+			],
 			authorities: []
 		}
 
 		const _certificateRequest = encode(certificateRequest, pl.CertificateRequest);
 
-		this.addMessageHanshake( {type: 'HANDSHAKE', ftype: 'CERTIFICATE_REQUEST', body: _certificateRequest});
+		this.addMessageHanshake({
+			type: 'HANDSHAKE', 
+			ftype: 'CERTIFICATE_REQUEST', 
+			body: _certificateRequest
+		});
 
-		this.addMessageHanshake( {type: 'HANDSHAKE', ftype: 'SERVER_HELLO_DONE', body: Buffer.allocUnsafe(0) } );
+		this.addMessageHanshake({
+			type: 'HANDSHAKE', 
+			ftype: 'SERVER_HELLO_DONE', 
+			body: Buffer.allocUnsafe(0) 
+		});
 
 		this.sendAll();
 	}
@@ -346,7 +374,11 @@ class DTLSsession {
 
 		const body = this.getHashHandshakeMessages('server finished');
 
-		this.addMessageHanshake( {type: 'HANDSHAKE', ftype: 'FINISHED', body});
+		this.addMessageHanshake({
+			type: 'HANDSHAKE', 
+			ftype: 'FINISHED', 
+			body
+		});
 
 		this.sendAll();
 	}

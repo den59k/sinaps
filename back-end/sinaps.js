@@ -1,4 +1,4 @@
-const https = require('https')
+	const https = require('https')
 const http = require('http')
 const chalk = require('chalk')
 const fs = require('fs')
@@ -7,8 +7,8 @@ const serve = require('serve-static')
 const bodyParser = require('body-parser')
 const cors = require('cors')
 
-const ip = '192.168.1.101'
-const publicIP = '192.168.1.101'
+const ip = '192.168.1.35'
+const publicIP = '192.168.1.35'
 const port = 80
 const isHTTPS = false;
 
@@ -26,6 +26,7 @@ app.use((req, res, next) => {
 	//Здесь мы чекнем, если у нас запрос на страницу, то вернем главную из кеша прям
 	if(req.headers.token === undefined)
 		if(req.url.indexOf('.') < 0){
+
 			res.send(html);
 			return;
 		}
