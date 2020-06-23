@@ -33,7 +33,7 @@ class RoomSender extends EventEmitter {
 		this.constraints = { audio: false, video: false };
 
 		for(let media of sdp.media){
-			console.log(media);
+			//console.log(media);
 			if(media.direction !== 'inactive'){
 				if(media.type === 'video')
 					this.constraints.video = true;
@@ -76,7 +76,7 @@ class RoomSender extends EventEmitter {
 						this.emit('start-send', (this));
 					}
 				}else{
-					console.log("MESSAGE: ", _decrypted);
+					//console.log("MESSAGE: ", _decrypted);
 				}
 
 				//console.log("MY HASH: ", servion.getHashHandshakeMessages('client finished'));

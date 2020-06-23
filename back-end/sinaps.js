@@ -26,7 +26,8 @@ app.use((req, res, next) => {
 	//Здесь мы чекнем, если у нас запрос на страницу, то вернем главную из кеша прям
 	if(req.headers.token === undefined)
 		if(req.url.indexOf('.') < 0){
-
+			res.setHeader('Content-Type', 'text/html; charset=utf-8');
+			res.setHeader('Cache-Control', 'public, max-age=86400')
 			res.send(html);
 			return;
 		}

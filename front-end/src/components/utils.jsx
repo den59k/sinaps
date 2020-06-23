@@ -106,11 +106,11 @@ export function MicroIcon(props){
 		<Icon size="60" {..._props}/>
 		{ props.stream.video && <WebcamSVG 
 			className="sub-icon" 
-			style={{left: '-7px'}} 
+			style={{left: '-5px'}} 
 			title="Использует веб-камеру"/>}
 		{ props.stream.audio && <MicroSVG 
 			className="sub-icon" 
-			style={{right: '-7px'}} 
+			style={{right: '-5px'}} 
 			title="Использует микрофон"/>}
 		{ muted && <div className='volume-stats'><FaVolumeMute/></div>}
 	</div>

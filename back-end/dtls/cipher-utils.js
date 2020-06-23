@@ -36,7 +36,7 @@ function phash(bytes, algorithm, secret, seed) {
   do {
     Ai = hmac(algorithm, secret, Ai); // A(i) = HMAC(secret, A(i-1))
     const output = hmac(algorithm, secret, Buffer.concat([Ai, seed]));
-
+    
     bufs.push(output);
     bytes -= output.length; // eslint-disable-line no-param-reassign
   } while (bytes > 0);

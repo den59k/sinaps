@@ -15,7 +15,7 @@ let bufs = [];
 function decodeHandshake(buffer){
 	const frag = decode(buffer, protocol.Handshake);
 	const fragment = new Handshake(frag);
-	
+
 	if(fragment.type === 'CLIENT_HELLO'){
 		const _body = decode(frag.body, protocol.ClientHello);
 		fragment.body = _body;

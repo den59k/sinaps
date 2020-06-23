@@ -151,7 +151,7 @@ class DTLSsession {
 		this.serverNonce = Buffer.alloc(12, 0);
 
 		clientIVfixed.copy(this.clientNonce, 0);
-    serverIVfixed.copy(this.serverNonce, 0);
+    	serverIVfixed.copy(this.serverNonce, 0);
 
 		//console.log("clientWriteKey: ", this.clientWriteKey);
 		//console.log("serverWriteKey: ", this.serverWriteKey);
